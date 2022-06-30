@@ -4,7 +4,7 @@
 
 ## About:
 
-BFAT is a tool used for analysis of of a design's bitstream to evaluate and report any relevant information about given fault bits as well as any errors that they would cause in the design's implementation. BFAT is being used for research purposes and is currently under development. So far BFAT supports all Xilinx 7-Series FPGAs that are documented in the Project X-Ray database. The full list of parts can be found below in the "Supported Parts" section. The tool is run in python and consists of the following scripts:
+BFAT is a tool used for analysis of of a design's bitstream to evaluate and report any relevant information about given fault bits as well as any errors that they would cause in the design's implementation. BFAT is being used for research purposes and is currently under development. So far BFAT supports most Xilinx 7-Series FPGAs that are documented in the [Project X-Ray database](https://github.com/f4pga/prjxray-db). The full list of parts can be found below in the "Supported Parts" section. The tool is run in python and consists of the following scripts:
 
 - `bfat.py`: The main script that is run on a design and creates a .txt file to report the information found.
 - `bitread.py` : python tool used to convert bitstream to ascii representation of high bits in bitstream and identify the part used to implement the provided design. Can also be run by itself to convert a bitstream to a .bits file containing the ascii representation of the high bits in the bitstream.
@@ -23,6 +23,11 @@ BFAT requires the use of a version of Vivado to read dcp files in order to retri
 BFAT utilizes the ProjectXray database in its design analysis and clones the database repo from Github during setup.
 
 BFAT runs on python 3.9 or later.
+
+---
+
+## BFAT Process Flowchart
+![Image](./bfat_flowchart.png)
 
 ---
 
