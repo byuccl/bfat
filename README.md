@@ -22,8 +22,6 @@ BFAT requires the use of a version of Vivado to read dcp files in order to retri
 
 BFAT utilizes the ProjectXray database in its design analysis and clones the database repo from Github during setup.
 
-BFAT runs on python 3.9 or later.
-
 ---
 
 ## BFAT Process Flowchart
@@ -31,42 +29,35 @@ BFAT runs on python 3.9 or later.
 
 ---
 
-## Installation:
+## Installation and Setup
 
-Clone the BFAT repo from Github
+Clone the BFAT repo from Github along with its submodule
 
 ```
     git clone --recurse-submodules https://github.com/byuccl/bfat.git
     cd bfat
 ```
 
-Run setup bash script
+To get the data from the provided checkpoint file, BFAT will open a pipe to Vivado and retrieve information through tcl commands. Make sure that you have Vivado installed on your system
+* We recommend version 2021.2 or later, as earlier versions are untested and we cannot guarantee that they will work
 
-```
-    ./setup.sh
-```
+BFAT requires python 3.9 or later. Install a supported version if you do not already have one in your system.
 
 ---
 
 ## How to Use BFAT
 
-1. Activate the python virtual environment
-
-```
-    source ./env/bin/activate
-```
-
-2. To get the data from the provided checkpoint file, BFAT will open a pipe to Vivado and retrieve information through tcl commands. Make sure that you have a version of Vivado installed and sourced:
+1. If you have not sourced a version of Vivado, do so:
 ```
     source /opt/Xilinx/Vivado/<vivado_version>/settings64.sh
 ```
 
-3. Run the bfat.py script providing it with:
+2. Run the bfat.py script providing it with:
     - The bitstream of the design to be analyzed
     - A dcp checkpoint file of the routed design to be analyzed
-    - A list of fault bits to evaluate in either a .txt or .json file
+    - A list of fault bits to evaluate in a .json file (see `docs/fault_bit_lists.md` for details on formatting)
 
-4. (Optional) Using the `-of` flag you can specify the file the fault report will be output to. If not used, the report will be saved to a file with a generated name in the current directory.
+3. (Optional) Using the `-of` flag you can specify the file the fault report will be output to. If not used, the report will be saved to a file with a generated name in the current directory.
 
 To see more specifics on running BFAT, look at the help information provided by running `python3 bfat.py -h`
 
