@@ -29,14 +29,14 @@ Fault reports are organized into "bit groups", which divide fault bits into grou
 
 Significant Bits:
 ------------------------------
-bit_00402b22_007_15 (0->1)
-	CLBLM_L_X86Y103 - SLICEM_X0.CLUT - INIT[00]
-	Resource Design Name: builder_bankmachine6_state[1]_i_3_TMR_1
-	INIT[00] bit altered for builder_bankmachine6_state[1]_i_3_TMR_1
+bit_0042189a_052_15 (1->0)
+	CLBLM_R_X49Y75 - SLICEL_X1.CLUT - INIT[00]
+	Resource Design Name: ODDR_10_i_6_TMR_2
+	INIT[00] bit altered for ODDR_10_i_6_TMR_2
 	Affected Resources:
-		builder_bankmachine6_state[1]_i_3_TMR_1
+		ODDR_10_i_6_TMR_2
 
-	select_objects [get_cells {builder_bankmachine6_state[1]_i_3_TMR_1}]
+	select_objects [get_cells {ODDR_10_i_6_TMR_2}]
 
 Bits: 1
 Errors Found: 1 (100.0%)
@@ -45,7 +45,7 @@ Errors Found: 1 (100.0%)
 The header immediately tells us that this is the first bit group provided in the list of fault bits. The report then tells us that BFAT has determined that some of the bits in the bit group are "significant bits" which affect the design if they are flipped.
 
 
-The report then lists the bitstream address of the bit that BFAT determined to be sensitive, and whether their value flipped from a 1 to a 0 or vice versa. In this case it flipped from a 0 to a 1. It then reports a lot of information about the fault, so let's go through it one line at a time:
+The report then lists the bitstream address of the bit that BFAT determined to be sensitive, and whether its value flipped from a 1 to a 0 or vice versa. In this case it flipped from a 1 to a 0. It then reports a lot of information about the fault, so let's go through it one line at a time:
 
 1. The tile, BEL, and function of the bit within the BEL. We can see that the bit affected a LUT in a CLB tile.
 2. The name of the resource in the design that is mapped onto this LUT
@@ -66,17 +66,18 @@ The report then lists some basic statistics about the bits in the bit group (how
 
 Significant Bits:
 ------------------------------
-bit_00002483_077_14 (1->0)
-	INT_R_X73Y188 - SS6BEG0 2-20 Routing Mux - Row Bit
-	Resource Design Name: INT_R_X73Y188/SS6BEG0
-	Opens created for net(s): VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/cores_0_cpu_logic_cpu/decode_to_execute_INSTRUCTION_reg_n_0__TMR_0[22]
+bit_00422308_001_12 (1->0)
+	INT_L_X70Y50 - WL1BEG1 2-20 Routing Mux - Column Bit
+	Resource Design Name: INT_L_X70Y50/WL1BEG1
+	Opens created for net(s): VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/dBridge_logic/io_output_rdata_fifo/io_output_rdata_payload_data_TMR_1[11]
+	Affected PIPs:
+		SL1END2->>WL1BEG1 (deactivated)
 	Affected Resources:
-		VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/cores_0_cpu_logic_cpu/HazardSimplePlugin_writeBackBuffer_valid_reg_TMR_2
-		VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/cores_0_cpu_logic_cpu/IBusCachedPlugin_fetchPc_pcReg_reg[3]_i_5_TMR_0
-		VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/cores_0_cpu_logic_cpu/IBusCachedPlugin_fetchPc_pcReg[3]_i_12_TMR_0
+		storage_12_reg_1_TMR_1
 
-	select_objects [get_nets {VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/cores_0_cpu_logic_cpu/decode_to_execute_INSTRUCTION_reg_n_0__TMR_0[22]}]
-	select_objects [get_cells {VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/cores_0_cpu_logic_cpu/HazardSimplePlugin_writeBackBuffer_valid_reg_TMR_2 VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/cores_0_cpu_logic_cpu/IBusCachedPlugin_fetchPc_pcReg_reg[3]_i_5_TMR_0 VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/cores_0_cpu_logic_cpu/IBusCachedPlugin_fetchPc_pcReg[3]_i_12_TMR_0}]
+	select_objects [get_pips {INT_L_X70Y50/INT_L.SL1END2->>WL1BEG1}]
+	select_objects [get_nets {VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/dBridge_logic/io_output_rdata_fifo/io_output_rdata_payload_data_TMR_1[11]}]
+	select_objects [get_cells {storage_12_reg_1_TMR_1}]
 
 Bits: 1
 Errors Found: 1 (100.0%)
@@ -87,9 +88,11 @@ Once again, the header states we are now looking for information from bit group 
 1. The affected tile is an INT (interconnect) tile. In this case, the affected part is not a BEL, but one of the routing muxes that controls which signals should be selected at an output node of a switchbox. Routing muxes in 7-Series parts use a column/row bit encoding for selecting input signals, so BFAT determined that this is a row bit.
 2. The name of the routing mux
 3. The fault message, stating that this bit upset created an open within the specified design net.
-4. The affected resources from the net being cut off. BFAT will trace the path that the net would have taken through the FPGA in order to track which design resources were affected by this event.
-5. Tcl command to select the net which was opened
-6. Tcl command to select all of the design elements which were found during the trace of this net
+4. The pip which was deactivated by this bit upset, causing the open within the specified net
+5. The affected resources from the net being cut off. BFAT will trace the path that the net would have taken through the FPGA in order to track which design resources were affected by this event.
+6. Tcl command to select the pip which was deactivated
+7. Tcl command to select the net which was opened
+8. Tcl command to select all of the design elements which were found during the trace of this net
 
 ---
 
@@ -102,23 +105,21 @@ Once again, the header states we are now looking for information from bit group 
 
 Significant Bits:
 ------------------------------
-bit_00002486_077_14 (0->1)
-	INT_R_X73Y188 - SS6BEG0 2-20 Routing Mux - Column Bit
-	Resource Design Name: INT_R_X73Y188/SS6BEG0
-	Shorts formed between net(s): VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/cores_0_cpu_logic_cpu/decode_to_execute_INSTRUCTION_reg_n_0__TMR_0[22], VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/cores_0_cpu_logic_cpu/CsrPlugin_exceptionPortCtrl_exceptionContext_badAddr_reg_n_0__TMR_0[28]
+bit_00401806_045_14 (0->1)
+	INT_L_X48Y122 - SS6BEG2 2-20 Routing Mux - Column Bit
+	Resource Design Name: INT_L_X48Y122/SS6BEG2
+	Shorts formed between net(s): sys_rst_TMR_1, VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/dBridge_logic/io_output_rdata_fifo/io_output_rdata_payload_data_TMR_2[2]
+	Affected PIPs:
+		LVB_L0->>SS6BEG2 (activated)
 	Affected Resources:
-		VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/cores_0_cpu_logic_cpu/HazardSimplePlugin_writeBackBuffer_valid_reg_TMR_2
-		VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/cores_0_cpu_logic_cpu/IBusCachedPlugin_fetchPc_pcReg_reg[3]_i_5_TMR_0
-		VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/cores_0_cpu_logic_cpu/IBusCachedPlugin_fetchPc_pcReg[3]_i_12_TMR_0
+		storage_12_reg_0_TMR_2
 
-	select_objects [get_nets {VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/cores_0_cpu_logic_cpu/decode_to_execute_INSTRUCTION_reg_n_0__TMR_0[22] VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/cores_0_cpu_logic_cpu/CsrPlugin_exceptionPortCtrl_exceptionContext_badAddr_reg_n_0__TMR_0[28]}]
-	select_objects [get_cells {VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/cores_0_cpu_logic_cpu/HazardSimplePlugin_writeBackBuffer_valid_reg_TMR_2 VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/cores_0_cpu_logic_cpu/IBusCachedPlugin_fetchPc_pcReg_reg[3]_i_5_TMR_0 VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/cores_0_cpu_logic_cpu/IBusCachedPlugin_fetchPc_pcReg[3]_i_12_TMR_0}]
-
-Bits: 1
-Errors Found: 1 (100.0%)
+	select_objects [get_pips {INT_L_X48Y122/INT_L.LVB_L0->>SS6BEG2}]
+	select_objects [get_nets {sys_rst_TMR_1 VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/dBridge_logic/io_output_rdata_fifo/io_output_rdata_payload_data_TMR_2[2]}]
+	select_objects [get_cells {storage_12_reg_0_TMR_2}]
 ```
 
-This type of fault is very similar to a short within a net. However, this bit being activated actually caused a routing mux to select two different, distinct signals at once, creating a short between two nets.
+This type of fault is similar to an open within a net. However, this bit being activated actually caused a routing mux to select two different, distinct signals at once, creating a short between two nets.
 
 ---
 
@@ -131,20 +132,18 @@ This type of fault is very similar to a short within a net. However, this bit be
 
 Significant Bits:
 ------------------------------
-bit_00002482_077_15 (0->1)
-	INT_R_X73Y188 - SS6BEG0 2-20 Routing Mux - Row Bit
-	Resource Design Name: INT_R_X73Y188/SS6BEG0
-	Shorts formed between net(s): VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/cores_0_cpu_logic_cpu/decode_to_execute_INSTRUCTION_reg_n_0__TMR_0[22], Unconnected Node(LOGIC_OUTS12)
+bit_0042230a_001_13 (0->1)
+	INT_L_X70Y50 - WL1BEG1 2-20 Routing Mux - Column Bit
+	Resource Design Name: INT_L_X70Y50/WL1BEG1
+	Shorts formed between net(s): Unconnected Node(LOGIC_OUTS_L14), VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/dBridge_logic/io_output_rdata_fifo/io_output_rdata_payload_data_TMR_1[11]
+	Affected PIPs:
+		LOGIC_OUTS_L14->>WL1BEG1 (activated)
 	Affected Resources:
-		VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/cores_0_cpu_logic_cpu/HazardSimplePlugin_writeBackBuffer_valid_reg_TMR_2
-		VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/cores_0_cpu_logic_cpu/IBusCachedPlugin_fetchPc_pcReg_reg[3]_i_5_TMR_0
-		VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/cores_0_cpu_logic_cpu/IBusCachedPlugin_fetchPc_pcReg[3]_i_12_TMR_0
+		storage_12_reg_1_TMR_1
 
-	select_objects [get_nets {VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/cores_0_cpu_logic_cpu/decode_to_execute_INSTRUCTION_reg_n_0__TMR_0[22]}]
-	select_objects [get_cells {VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/cores_0_cpu_logic_cpu/HazardSimplePlugin_writeBackBuffer_valid_reg_TMR_2 VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/cores_0_cpu_logic_cpu/IBusCachedPlugin_fetchPc_pcReg_reg[3]_i_5_TMR_0 VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/cores_0_cpu_logic_cpu/IBusCachedPlugin_fetchPc_pcReg[3]_i_12_TMR_0}]
-
-Bits: 1
-Errors Found: 1 (100.0%)
+	select_objects [get_pips {INT_L_X70Y50/INT_L.LOGIC_OUTS_L14->>WL1BEG1}]
+	select_objects [get_nets {VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/dBridge_logic/io_output_rdata_fifo/io_output_rdata_payload_data_TMR_1[11]}]
+	select_objects [get_cells {storage_12_reg_1_TMR_1}]
 ```
 
 This is another example of a short in an interconnect tile. However, instead of a short between two nets, this upset caused a routing mux to select both a net and an input node without a net mapped onto it. These are referred to as "unconnected nodes".
@@ -179,8 +178,8 @@ In this bit group, a bitstream address was provided that does not exist, since t
 
 Errorless Bits:
 ------------------------------
-bit_00020b20_059_15: CLBLL_L_X22Y229 - SLICEL_X0.ALUT - INIT[00] - NA
-bit_00000f95_024_07: INT_R_X31Y162 - BYP_ALT0 5-24 Routing Mux - Row Bit - INT_R_X31Y162/BYP_ALT0
+bit_0000339a_026_15: CLBLM_R_X103Y163 - SLICEL_X1.ALUT - INIT[00] - NA
+bit_00420115_069_07: INT_L_X2Y84 - BYP_ALT0 5-24 Routing Mux - Row Bit - INT_L_X2Y84/BYP_ALT0
 
 Bits: 2
 Errors Found: 0 (0.0%)
@@ -195,13 +194,15 @@ In this last bit group, two bits were provided. However, BFAT has not detected t
 ```
 Bit Groups: 6
 Bit Groups w/ Errors: 4 (66.67%)
+
 Fault Bits: 7
 Routing Fault Bits: 4 (57.14%)
 CLB Fault Bits: 2 (28.57%)
-Unsupported Fault Bits: 1 (14.29%)
+Unsupported Fault Bits: 0 (0.0%)
 Unknown Fault Bits: 1 (14.29%)
 Bits Driven High: 5 (71.43%)
 Bits Driven Low: 1 (14.29%)
+
 Found Errors: 4 (57.14%)
 PIP Open Errors: 1 (14.29%)
 PIP Short Errors: 2 (28.57%)
@@ -214,7 +215,7 @@ At the bottom of the fault report, a list of statistics over the whole run of BF
 - `Fault Bits`: Number of fault bits in the input fault bit list
 - `Routing Fault Bits`: Number of fault bits which affected the routing switchboxes in INT tiles
 - `CLB Fault Bits`: Number of fault bits which affected BELs in CLB tiles
-- `Unsupported Errors`: Number of bits for which further analysis is not supported by BFAT 
+- `Unsupported Fault Bits`: Number of bits for which further analysis is not supported by BFAT 
 - `Unknown Fault Bits`: Number of fault bits whose function could not be determined
 - `Bits Driven High`: Number of bits which, if flipped, change from a 0 to a 1
 - `Bits Driven Low`: Number of bits which, if flipped, change from a 1 to a 0

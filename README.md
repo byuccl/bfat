@@ -15,8 +15,6 @@ Scripts included from the local library:
 - `bit_definitions.py`: supplementary script that uses created dataclasses and program arguments to define and evaluate each of the given fault bits.
 - `file_processing.py`: supplementary script that deals with all external file reading and parsing.
 - `statistics_footer.py`: supplementary script that reads the report data for the design and adds on a footer at the end of the report file to report some statistics of the design and faults found.
-- `rtmux_modeling.py`: supplementary script that models and prints the models of routing muxes on a low level of abstraction for better understanding of FPGA routing systems (currently unused in main script).
-- `setup.sh`: bash script used to create the python virtual environments and install the necessary packages for running BFAT.
 
 BFAT requires the use of a version of Vivado to read dcp files in order to retrieve information about the design being analyzed.
 
