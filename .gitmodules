@@ -1,0 +1,6 @@
+[submodule "database/--force"]
+	path = database/--force
+	url = https://github.com/f4pga/prjxray-db.git
+[submodule "database/prjxray-db"]
+	path = database/prjxray-db
+	url = https://github.com/f4pga/prjxray-db.git
