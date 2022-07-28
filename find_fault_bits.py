@@ -22,8 +22,6 @@
         -output file (.json) in the working directory that contains the fault bits
 '''
 
-import time
-
 from bfat import get_tile_type_name
 from bitread import get_high_bits, get_frame_list
 from lib.design_query import DesignQuery, VivadoQuery
@@ -360,38 +358,26 @@ def find_fault_bits(bitstream:str, dcp:str, run_bfat:bool):
             Returns: list of fault bits (.txt)
     '''
 
-    t_start = time.perf_counter()
-
     # Get the high bits in the bitstream and the part name
     design_bits, part_name = get_high_bits(bitstream)
-    print(f'Bitstream Read In:\t\t{round(time.perf_counter()-t_start, 2)} sec')
 
     # Create data structure of the design
     design_query = VivadoQuery(dcp)
-    print(f'Design Query Created:\t\t{round(time.perf_counter()-t_start, 2)} sec')
 
     # Get the tilegrid information for the part
     tilegrid_info = parse_tilegrid(part_name)
-    print(f'Tilegrid Parsed:\t\t{round(time.perf_counter()-t_start, 2)} sec')
 
     # Generate sets of the names of important tile types
     CLB_tiles = {tile for tile in tilegrid_info.keys() if 'CLB' in tile}
     INT_tiles = {tile for tile in tilegrid_info.keys() if 'INT' in tile}
-    print(f'CLB and INT Tile Sets Created:\t\t{round(time.perf_counter()-t_start, 2)} sec')
 
     # Retrieve the fault bit groups for each of the test cases
     LUT_bit_group = get_bit_in_LUT(design_query, tilegrid_info, CLB_tiles, part_name)
-    print(f'LUT Bit Group:\t\t{round(time.perf_counter()-t_start, 2)} sec')
     open_bit_group = get_bit_for_open(design_query, tilegrid_info, INT_tiles, part_name)
-    print(f'Open Bit Group:\t\t{round(time.perf_counter()-t_start, 2)} sec')
     short_bit_group = get_bits_for_short(design_query, tilegrid_info, INT_tiles, design_bits, part_name, False)
-    print(f'Short Bit Group:\t\t{round(time.perf_counter()-t_start, 2)} sec')
     short_uc_node_bit_group = get_bits_for_short(design_query, tilegrid_info, INT_tiles, design_bits, part_name, True)
-    print(f'Short w/ Unconnected Node Bit Group:\t\t{round(time.perf_counter()-t_start, 2)} sec')
     undef_bit_group = get_undefined_bit(part_name)
-    print(f'Undefined Bit Group:\t\t{round(time.perf_counter()-t_start, 2)} sec')
     errorless_bit_group = get_errorless_bits(design_query, tilegrid_info, CLB_tiles, INT_tiles, part_name)
-    print(f'Errorless Bit Group:\t\t{round(time.perf_counter()-t_start, 2)} sec')
 
     bit_groups = [LUT_bit_group, open_bit_group, short_bit_group, short_uc_node_bit_group, undef_bit_group,
                   errorless_bit_group]
@@ -411,8 +397,6 @@ def find_fault_bits(bitstream:str, dcp:str, run_bfat:bool):
     # Open file to write fault bits to
     with open(fault_bits_file_path, 'w') as faults_file:
         faults_file.write(bit_groups_json)
-
-    print(f'Output File Generated:\t\t{round(time.perf_counter()-t_start, 2)} sec')
 
     # If run flag was set, run the generated files through BFAT
     if run_bfat:
