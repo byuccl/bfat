@@ -578,7 +578,8 @@ class VivadoQuery(DesignQuery):
             'getNodeSite' : f'puts [get_sites -of [get_site_pins -of [get_nodes {arg1}]]]\n',
             'getNodeSitePin' : f'puts [get_site_pins -of [get_nodes {arg1}]]\n',
             # Wire Commands
-            'getWireConnections' : f'puts [get_nodes -downhill -of_objects [get_nodes -of [get_wires {arg1}/{arg2}]]]\n'
+            'getWireConnections' : f'puts [get_nodes -downhill -of_objects [get_nodes -of [get_wires {arg1}/{arg2}]]]\n',
+            'getWiresOfNode' : f'puts [get_wires -of [get_nodes {arg1}]]\n'
         }.get(cmd, '')
         
         # Return latest output from vivado if valid command, or return default value
@@ -661,7 +662,8 @@ class VivadoQuery(DesignQuery):
         '''
         
         current_node = f'{tile}/{node}'
-        traced_nodes.add(current_node)        
+        traced_nodes.add(current_node)    
+        node_wires = self.run_command('getWiresOfNode', current_node)    
         pips = self.get_pips(net)
 
         # Find any non-INT or same-tile wire connections for the initial node
@@ -669,12 +671,7 @@ class VivadoQuery(DesignQuery):
 
         # Trace each wire connection for initial cells used by the net in the current tile
         for conn in sink_conns:
-            # try:
             conn_tile, conn_node = conn.split('/')
-            # except ValueError:
-            #     print(f'ValueError for {conn}')
-            #     print(f'Sink conns: {sink_conns}')
-            #     raise ValueError
 
             # Trace affected cells in any non-INT tiles and trace net downstream in any INT tiles
             if 'INT' not in conn:
@@ -702,11 +699,11 @@ class VivadoQuery(DesignQuery):
                 # Trace the site's affected cells from each of the initial cells found
                 [affected_rsrcs.union(self.trace_cells(conn_tile, site, cell, affected_rsrcs)) for cell in init_cells]
 
-            elif (current_node, conn) in pips or conn_tile != tile and any([True for pip in pips if pip[1] == conn]):
+            elif any([(pip[0] in node_wires and pip[1] == conn) for pip in pips]):
                 # Do not trace nodes that have already been traced
                 if (conn_tile, conn_node) not in traced_nodes:
                     affected_rsrcs, traced_nodes = self.trace_affected_resources(net, conn_tile, conn_node,
-                                                                                 traced_nodes, affected_rsrcs)
+                                                                                traced_nodes, affected_rsrcs)
 
         return affected_rsrcs, traced_nodes
 

@@ -29,14 +29,14 @@ Fault reports are organized into "bit groups", which divide fault bits into grou
 
 Significant Bits:
 ------------------------------
-bit_0042189a_052_15 (1->0)
-	CLBLM_R_X49Y75 - SLICEL_X1.CLUT - INIT[00]
-	Resource Design Name: ODDR_10_i_6_TMR_2
-	INIT[00] bit altered for ODDR_10_i_6_TMR_2
+bit_00001fa2_066_31 (0->1)
+	CLBLM_R_X63Y182 - SLICEM_X0.DLUT - INIT[00]
+	Resource Design Name: VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/cores_0_cpu_logic_cpu/IBusCachedPlugin_cache/decode_to_execute_SRC2[17]_i_6_TMR_2
+	INIT[00] bit altered for VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/cores_0_cpu_logic_cpu/IBusCachedPlugin_cache/decode_to_execute_SRC2[17]_i_6_TMR_2
 	Affected Resources:
-		ODDR_10_i_6_TMR_2
+		VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/cores_0_cpu_logic_cpu/IBusCachedPlugin_cache/decode_to_execute_SRC2[17]_i_6_TMR_2
 
-	select_objects [get_cells {ODDR_10_i_6_TMR_2}]
+	select_objects [get_cells {VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/cores_0_cpu_logic_cpu/IBusCachedPlugin_cache/decode_to_execute_SRC2[17]_i_6_TMR_2}]
 
 Bits: 1
 Errors Found: 1 (100.0%)
@@ -66,18 +66,18 @@ The report then lists some basic statistics about the bits in the bit group (how
 
 Significant Bits:
 ------------------------------
-bit_00422308_001_12 (1->0)
-	INT_L_X70Y50 - WL1BEG1 2-20 Routing Mux - Column Bit
-	Resource Design Name: INT_L_X70Y50/WL1BEG1
-	Opens created for net(s): VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/dBridge_logic/io_output_rdata_fifo/io_output_rdata_payload_data_TMR_1[11]
+bit_00421b8b_054_19 (1->0)
+	INT_R_X55Y76 - WR1BEG_S0 2-20 Routing Mux - Column Bit
+	Resource Design Name: INT_R_X55Y76/WR1BEG_S0
+	Opens created for net(s): builder_sdcore_crc16inserter_state_TMR_2
 	Affected PIPs:
-		SL1END2->>WL1BEG1 (deactivated)
+		NR1END3->>WR1BEG_S0 (deactivated)
 	Affected Resources:
-		storage_12_reg_1_TMR_1
+		ODDR_6_i_4_TMR_2
 
-	select_objects [get_pips {INT_L_X70Y50/INT_L.SL1END2->>WL1BEG1}]
-	select_objects [get_nets {VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/dBridge_logic/io_output_rdata_fifo/io_output_rdata_payload_data_TMR_1[11]}]
-	select_objects [get_cells {storage_12_reg_1_TMR_1}]
+	select_objects [get_pips {INT_R_X55Y76/INT_R.NR1END3->>WR1BEG_S0}]
+	select_objects [get_nets {builder_sdcore_crc16inserter_state_TMR_2}]
+	select_objects [get_cells {ODDR_6_i_4_TMR_2}]
 
 Bits: 1
 Errors Found: 1 (100.0%)
@@ -105,18 +105,21 @@ Once again, the header states we are now looking for information from bit group 
 
 Significant Bits:
 ------------------------------
-bit_00401806_045_14 (0->1)
-	INT_L_X48Y122 - SS6BEG2 2-20 Routing Mux - Column Bit
-	Resource Design Name: INT_L_X48Y122/SS6BEG2
-	Shorts formed between net(s): sys_rst_TMR_1, VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/dBridge_logic/io_output_rdata_fifo/io_output_rdata_payload_data_TMR_2[2]
+bit_00421b88_054_18 (0->1)
+	INT_R_X55Y76 - WR1BEG_S0 2-20 Routing Mux - Column Bit
+	Resource Design Name: INT_R_X55Y76/WR1BEG_S0
+	Shorts formed between net(s): builder_sdcore_crc16inserter_state_TMR_2, ODDR_6_i_8_n_0_TMR_0
 	Affected PIPs:
-		LVB_L0->>SS6BEG2 (activated)
+		WR1END3->>WR1BEG_S0 (activated)
 	Affected Resources:
-		storage_12_reg_0_TMR_2
+		ODDR_6_i_4_TMR_2
 
-	select_objects [get_pips {INT_L_X48Y122/INT_L.LVB_L0->>SS6BEG2}]
-	select_objects [get_nets {sys_rst_TMR_1 VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/dBridge_logic/io_output_rdata_fifo/io_output_rdata_payload_data_TMR_2[2]}]
-	select_objects [get_cells {storage_12_reg_0_TMR_2}]
+	select_objects [get_pips {INT_R_X55Y76/INT_R.WR1END3->>WR1BEG_S0}]
+	select_objects [get_nets {ODDR_6_i_8_n_0_TMR_0 builder_sdcore_crc16inserter_state_TMR_2}]
+	select_objects [get_cells {ODDR_6_i_4_TMR_2}]
+
+Bits: 1
+Errors Found: 1 (100.0%)
 ```
 
 This type of fault is similar to an open within a net. However, this bit being activated actually caused a routing mux to select two different, distinct signals at once, creating a short between two nets.
@@ -132,18 +135,21 @@ This type of fault is similar to an open within a net. However, this bit being a
 
 Significant Bits:
 ------------------------------
-bit_0042230a_001_13 (0->1)
-	INT_L_X70Y50 - WL1BEG1 2-20 Routing Mux - Column Bit
-	Resource Design Name: INT_L_X70Y50/WL1BEG1
-	Shorts formed between net(s): Unconnected Node(LOGIC_OUTS_L14), VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/dBridge_logic/io_output_rdata_fifo/io_output_rdata_payload_data_TMR_1[11]
+bit_00421b8e_054_19 (0->1)
+	INT_R_X55Y76 - WR1BEG_S0 2-20 Routing Mux - Row Bit
+	Resource Design Name: INT_R_X55Y76/WR1BEG_S0
+	Shorts formed between net(s): Unconnected Node(LOGIC_OUTS7), builder_sdcore_crc16inserter_state_TMR_2
 	Affected PIPs:
-		LOGIC_OUTS_L14->>WL1BEG1 (activated)
+		LOGIC_OUTS7->>WR1BEG_S0 (activated)
 	Affected Resources:
-		storage_12_reg_1_TMR_1
+		ODDR_6_i_4_TMR_2
 
-	select_objects [get_pips {INT_L_X70Y50/INT_L.LOGIC_OUTS_L14->>WL1BEG1}]
-	select_objects [get_nets {VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/dBridge_logic/io_output_rdata_fifo/io_output_rdata_payload_data_TMR_1[11]}]
-	select_objects [get_cells {storage_12_reg_1_TMR_1}]
+	select_objects [get_pips {INT_R_X55Y76/INT_R.LOGIC_OUTS7->>WR1BEG_S0}]
+	select_objects [get_nets {builder_sdcore_crc16inserter_state_TMR_2}]
+	select_objects [get_cells {ODDR_6_i_4_TMR_2}]
+
+Bits: 1
+Errors Found: 1 (100.0%)
 ```
 
 This is another example of a short in an interconnect tile. However, instead of a short between two nets, this upset caused a routing mux to select both a net and an input node without a net mapped onto it. These are referred to as "unconnected nodes".
@@ -178,8 +184,8 @@ In this bit group, a bitstream address was provided that does not exist, since t
 
 Errorless Bits:
 ------------------------------
-bit_0000339a_026_15: CLBLM_R_X103Y163 - SLICEL_X1.ALUT - INIT[00] - NA
-bit_00420115_069_07: INT_L_X2Y84 - BYP_ALT0 5-24 Routing Mux - Row Bit - INT_L_X2Y84/BYP_ALT0
+bit_00000e9a_014_15: CLBLM_R_X29Y157 - SLICEL_X1.ALUT - INIT[00] - NA
+bit_00000895_040_07: INT_R_X17Y170 - BYP_ALT0 5-24 Routing Mux - Row Bit - INT_R_X17Y170/BYP_ALT0
 
 Bits: 2
 Errors Found: 0 (0.0%)
