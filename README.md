@@ -10,6 +10,7 @@ BFAT consists of the following scripts:
 
 - `bfat.py`: The main script that is run on a design and creates a .txt file to report the information found.
 - `bitread.py` : python tool used to convert bitstream to ascii representation of high bits in bitstream and identify the part used to implement the provided design. Can also be run by itself to convert a bitstream to a .bits file containing the ascii representation of the high bits in the bitstream.
+- `find_fault_bits.py`: python tool that a user can use on their own design to generate a sample fault bit list which can then be run through BFAT (see `docs/fault_report.md` for information on how to run)
 
 Scripts included from the local library:
 
