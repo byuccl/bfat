@@ -11,7 +11,6 @@
 
     Returns:
         -list of all design bits in the form "bit_[base_frame]_[word_offset]_[bit_offset]"
-        -part name as parsed from the bitstream
 '''
 
 from lib.tile import XRAY_DB
@@ -266,10 +265,9 @@ def parse_config_packet(bitfile, frames:list):
 
 def get_high_bits(bitstream:str):
     '''
-        Generates a list of all the high bits in a bitstream's main configuration packet and
-        gets the part name from the bitstream
+        Generates a list of all the high bits in a bitstream's main configuration packet
             Arguments: the bitstream's file path
-            Returns: list of all design bits, the part name
+            Returns: list of all design bits
     '''
 
     # Begin reading the bitstream
@@ -289,7 +287,7 @@ def get_high_bits(bitstream:str):
         # Parses the configuration packet and determines the addresses of high bits in the bitstream
         bits = parse_config_packet(bitfile, frames)
 
-    return bits, part
+    return bits
 
 if __name__ == "__main__":
     import argparse
@@ -300,8 +298,7 @@ if __name__ == "__main__":
     ARGS = PARSER.parse_args()
 
     # Run bitread to generate a list of the design bits
-    # bits = get_high_bits(ARGS.part, ARGS.bitstream)
-    bits, part = get_high_bits(ARGS.bitstream)
+    bits = get_high_bits(ARGS.bitstream)
 
     # Output the list to a .bits file if running the script by itself
     with open(f'{ARGS.bitstream}s', "w") as bits_file:

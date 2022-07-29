@@ -22,7 +22,7 @@ import time
 import json
 from io import TextIOWrapper
 from lib.tile import Tile
-from lib.file_processing import parse_tilegrid, parse_fault_bits
+from lib.file_processing import parse_tilegrid, parse_fault_bits, parse_design_bits
 from lib.design_query import VivadoQuery
 from lib.bit_definitions import def_fault_bits
 from lib.statistics import Statistics, print_stat_footer, get_bit_group_stats
@@ -298,23 +298,26 @@ def main():
 
     t_start = time.perf_counter()
 
-    # Parse in all high bits from the bitstream [base_frame, word, bit] and get the part name
-    design_bits, part = get_high_bits(ARGS.bitstream)
-    debug_print(f'Bitstream Read In:\t\t{round(time.perf_counter()-t_start, 2)} sec', ARGS.debug)
+    # Parse in all high bits from the bitstream or from a .bits file [base_frame, word, bit]
+    if ARGS.bits_file:
+        design_bits = parse_design_bits(ARGS.bits)
+    else:
+        design_bits = get_high_bits(ARGS.bits)
+    debug_print(f'Design Bits Read In:\t\t{round(time.perf_counter()-t_start, 2)} sec', ARGS.debug)
+
+    # Create a design query to get design info from the dcp file
+    design = VivadoQuery(ARGS.dcp_file)
+    debug_print(f'Design Query Created:\t\t{round(time.perf_counter()-t_start, 2)} sec', ARGS.debug)
 
     # Parse in the corresponding part's tilegrid.json file
-    tile_info = parse_tilegrid(part)
+    tile_info = parse_tilegrid(design.part)
     # Parse in the fault bit information
     bit_groups = parse_fault_bits(ARGS.fault_bits)
     debug_print(f'Input Files Parsed:\t\t{round(time.perf_counter()-t_start, 2)} sec', ARGS.debug)
 
     # Generate images of tiles from the part's tilegrid
-    tile_imgs = gen_tile_images(tile_info, part)
+    tile_imgs = gen_tile_images(tile_info, design.part)
     debug_print(f'Tile Images Generated:\t\t{round(time.perf_counter()-t_start, 2)} sec', ARGS.debug)
-
-    # Create a design query to get design info from the dcp file
-    design = VivadoQuery(ARGS.dcp_file)
-    debug_print(f'Design Query Created:\t\t{round(time.perf_counter()-t_start, 2)} sec', ARGS.debug)
 
     # Define and evaluate each fault bit and generate data structure for a report
     fault_report = def_fault_bits(bit_groups, tile_info, tile_imgs, design_bits, design)
@@ -344,7 +347,7 @@ if __name__ == '__main__':
                                                 + 'bits to report the identities and the effects '
                                                 + 'of the flipped values of each fault bit on '
                                                 + 'the design.')
-    PARSER.add_argument("bitstream", help='Bitstream file of the design to be analyzed')
+    PARSER.add_argument("bits", help='Bitstream file of the design to be analyzed')
     PARSER.add_argument('dcp_file', help='Vivado checkpoint file of the implemented design')
     PARSER.add_argument('fault_bits', help='Json file listing bits of interest')
     PARSER.add_argument('-of', '--out_file', default='',
@@ -352,6 +355,8 @@ if __name__ == '__main__':
     PARSER.add_argument('-d', '--debug', action='store_true', help='Flag debug statements')
     PARSER.add_argument('-j', '--json', default='',
                         help='File path to write fault report data as additional json file')
+    PARSER.add_argument('-bf', '--bits_file', action='store_true', default='',
+                        help='Specify a .bits text file of all high bits instead of a bitstream')
     ARGS = PARSER.parse_args()
 
     main()

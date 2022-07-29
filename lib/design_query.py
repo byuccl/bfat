@@ -433,7 +433,7 @@ class VivadoQuery(DesignQuery):
                 Arguments: String of the net to query
         '''
 
-        pips = self.run_command('getNetPIPs', net)
+        pips = self.run_command('getNetPIPs', net, timeout=0.08)
 
         # Check that PIPs were found for the given net
         if pips and pips != 'NA':
@@ -539,7 +539,7 @@ class VivadoQuery(DesignQuery):
     #   Vivado Interfacing   #
     ##########################
 
-    def run_command(self, cmd:str, arg1='', arg2='', timeout=0.015):
+    def run_command(self, cmd:str, arg1='', arg2='', timeout=0.03):
         '''
             Generates the appropriate tcl command to run in vivado through
             the open pipe and get the results back.
@@ -719,19 +719,20 @@ class VivadoQuery(DesignQuery):
         cell_outpins = [pin for pin in self.run_command('getCellPins', cell) if self.run_command('getPinDirection', pin) == 'OUT']
         for cell_outpin in cell_outpins:
             pin_net = self.run_command('getPinNet', cell_outpin)
-            pin_net_aliases = self.run_command('getNetAliases', pin_net)
+            # Verify that a proper cell pin was found
+            if not pin_net or pin_net == 'NA':
+                continue
 
+            pin_net_aliases = self.run_command('getNetAliases', pin_net)
             # Iterate through all aliases of the net
             for pin_net_alias in pin_net_aliases:
-                # Verify that a proper cell pin was found
-                if pin_net_alias and pin_net_alias != 'NA':
-                    net_cells = self.run_command('getNetCells', pin_net_alias)
+                net_cells = self.run_command('getNetCells', pin_net_alias)
 
-                    # Add cells to the affected resources and trace that cell for others
-                    for net_cell in net_cells:
-                        # Specify only different cells in the same tile
-                        if net_cell != cell and net_cell in self.cells[tile][site].values():
-                            affected_resources.add(net_cell)
-                            affected_resources.union(self.trace_cells(tile, site, net_cell, affected_resources))
+                # Add cells to the affected resources and trace that cell for others
+                for net_cell in net_cells:
+                    # Specify only different cells in the same tile
+                    if net_cell != cell and net_cell in self.cells[tile][site].values():
+                        affected_resources.add(net_cell)
+                        affected_resources.union(self.trace_cells(tile, site, net_cell, affected_resources))
         
         return affected_resources
