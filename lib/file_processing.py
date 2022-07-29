@@ -178,3 +178,25 @@ def parse_fault_bits(json_file:str):
         bit_groups[index] = lower_bit_group
 
     return bit_groups
+
+
+####################################
+#    Parsing Design Bits Files     #
+####################################
+
+def parse_design_bits(bits_file:str):
+    '''
+        Parses in the design's .bits file
+            Arguments: The .bits file path provided to the program
+            Returns: List of all bits in the .bits file as arrays of separated address elements
+    '''
+
+    bits = []
+
+    # Open the .bits file for the design bits
+    with open(bits_file) as b_f:
+        # Iterate through each line of the .bits file to get the bit information
+        for line in b_f:
+            bits.append(line.strip())
+
+    return bits
