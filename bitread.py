@@ -7,10 +7,10 @@
     bitstream.
 
     Arguments:
-        -the bitstream of the design for the part
+        - The bitstream file of the design for the part
 
     Returns:
-        -list of all design bits in the form "bit_[base_frame]_[word_offset]_[bit_offset]"
+        - List of all design bits in the format "bit_[base_frame]_[word_offset]_[bit_offset]"
 '''
 
 from lib.tile import XRAY_DB
@@ -22,8 +22,8 @@ from lib.tile import XRAY_DB
 def parse_word(bitfile):
     '''
         Reads in one 32-bit word from the bitstream
-            Arguments: the opened bitstream file
-            Returns: a list containing each bit starting at the LSB
+            Arguments: The opened bitstream file
+            Returns: List containing each bit starting at the LSB
     '''
 
     # Parse in 4 bytes (one 32-bit word) in integer form
@@ -45,8 +45,8 @@ def parse_word(bitfile):
 def bits_to_int(binary:list):
     '''
         Converts the binary representation of a number to its decimal form
-            Arguments: a list of each bit in the number
-            Returns: an integer of the binary's decimal value
+            Arguments: List of each bit in the number
+            Returns: Integer of the binary's decimal value
     '''
     int_value = 0
     for i, bit in enumerate(binary):
@@ -62,8 +62,8 @@ def find_config_packet(bitfile):
     '''
         Parses the beginning of the bitstream to find the part name and the beginning of the
         Type 2 configuration packet, which is where the configuration frames begin.
-            Arguments: the opened bitstream to read
-            Returns: the part name
+            Arguments: The opened bitstream to read
+            Returns: String of the part name
     ''' 
 
     # Decimal form of the sync word 0xAA995566
@@ -124,8 +124,8 @@ def find_config_packet(bitfile):
 def get_frame_list(part:str):
     '''
         Parses the part.json file to generate a frame list for the 7-series part
-            Arguments: a string of the part's name
-            Returns: A list containing each frame address in both binary and hexadecimal formats
+            Arguments: String of the part's name
+            Returns: List containing each frame address in both binary and hexadecimal formats
     '''
 
     # The binary form of a Series-7 frame address is as follows:
@@ -219,7 +219,7 @@ def get_frame_list(part:str):
 def parse_config_packet(bitfile, frames:list):
     '''
         Parses the main configuration packet for all high bits
-            Arguments: the opened bitstream file, list of frame addresses
+            Arguments: The opened bitstream file and the list of frame addresses
             Returns: List of all high bits in the configuration packet
     '''
 
@@ -266,12 +266,12 @@ def parse_config_packet(bitfile, frames:list):
 def get_high_bits(bitstream:str):
     '''
         Generates a list of all the high bits in a bitstream's main configuration packet
-            Arguments: the bitstream's file path
-            Returns: list of all design bits
+            Arguments: The bitstream's file path
+            Returns: List of all design bits
     '''
 
     # Begin reading the bitstream
-    with open(bitstream, "rb") as bitfile:        
+    with open(bitstream, "rb") as bitfile:
         
         # Read through header and beginning parts of bitfile, get part name along the way
         part = find_config_packet(bitfile)

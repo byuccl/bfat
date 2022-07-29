@@ -1,21 +1,23 @@
 '''
     bfat.py
-    BYU Configurable Computing Lab (CCL): BFAT project, 2021-2022
+    BYU Configurable Computing Lab (CCL): BFAT project, 2022
 
     Analyzes a design and evaluates provided fault bits to report their
     identities and the effects of their flipped values on the design.
 
     Arguments:
-        -bitstream of the design to be analyzed
-        -dcp vivado checkpoint file of operational design
-        -json file of fault bits to analyze
+        - bitstream of the design to be analyzed
+        - dcp vivado checkpoint file of operational design
+        - json file of fault bits to analyze
 
     Optional flags:
-        -out_file [-of]: Path of output file. Default is <design_name>_fault_report.txt
-        -debug [-d]: Flag for printing debug statements included in code to standard out
+        - bits_file [-bf]: Flag to parse in a .bits file instead of a bitstream for the design
+        - debug [-d]: Flag for printing debug statements included in code to standard out
+        - out_file [-of]: Path of output file. Default is <design_name>_fault_report.txt
+        - json [-j]: File path to an additional json file storing the fault report information
 
     Returns:
-        -output file (.txt) that reports the location and cause of any determinable fault bits
+        - output file (.txt) that reports the location and cause of any determinable fault bits
 '''
 
 import time
@@ -350,13 +352,13 @@ if __name__ == '__main__':
     PARSER.add_argument("bits", help='Bitstream file of the design to be analyzed')
     PARSER.add_argument('dcp_file', help='Vivado checkpoint file of the implemented design')
     PARSER.add_argument('fault_bits', help='Json file listing bits of interest')
-    PARSER.add_argument('-of', '--out_file', default='',
-                        help='File path where the output is to be written.')
-    PARSER.add_argument('-d', '--debug', action='store_true', help='Flag debug statements')
-    PARSER.add_argument('-j', '--json', default='',
-                        help='File path to write fault report data as additional json file')
     PARSER.add_argument('-bf', '--bits_file', action='store_true', default='',
                         help='Specify a .bits text file of all high bits instead of a bitstream')
+    PARSER.add_argument('-d', '--debug', action='store_true', help='Flag debug statements')
+    PARSER.add_argument('-of', '--out_file', default='',
+                        help='File path where the output is to be written.')
+    PARSER.add_argument('-j', '--json', default='',
+                        help='File path to write fault report data as additional json file')
     ARGS = PARSER.parse_args()
 
     main()

@@ -56,6 +56,7 @@ BFAT requires python 3.9 or later. Install a supported version if you do not alr
 
 2. Run the bfat.py script providing it with:
     - The bitstream of the design to be analyzed
+        - If the bits_file flag (-bf) is used, a .bits file (as generated from bitread.py) will be read in instead of a bitstream
     - A dcp checkpoint file of the routed design to be analyzed
     - A list of fault bits to evaluate in a .json file (see `docs/fault_bit_lists.md` for details on formatting)
 

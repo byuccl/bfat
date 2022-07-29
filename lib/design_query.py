@@ -36,7 +36,7 @@ class OutStreamReader:
         def _populateQueue(stream, queue:Queue):
             '''
                 Populates the Queue and starts collecting lines from the stream
-                    Arguments: Queue to load read output into
+                    Arguments: Stream to read from and a queue to load stream output into
             '''
 
             while True:

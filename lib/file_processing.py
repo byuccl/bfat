@@ -6,7 +6,6 @@
     the input files from the design and part database.
 '''
 
-import math
 import json
 from lib.tile import XRAY_DB
 
