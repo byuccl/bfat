@@ -65,6 +65,11 @@ def get_bit_in_LUT(design:DesignQuery, tilegrid_info:dict, CLB_tiles:set, part_n
             continue
         # Break if LUT is found
         break
+    
+    # Error detection for if there is somehow no LUTs in the entire design
+    if design.get_cell(tile_name, slice_name, resource) == 'NA':
+        print('The provided design does not utilize any LUTs, please use a more complex design')
+        return []
 
     # Build tile object for the tile that the cell resides in
     tile_type = get_tile_type_name(tile_name)
@@ -128,6 +133,11 @@ def get_bit_for_open(design:DesignQuery, tilegrid_info:dict, INT_tiles:set, part
             continue
         # Break if suitable pip is found
         break
+    
+    # Error detection if there is somehow no pips in the entire design
+    if design.get_pips(net) == 'NA':
+        print('The provided design does not utilize any interconnect tile routing muxes, '
+             + 'please use a more complex design')
 
     # Break pip into source and sink, remove tile from node names
     src = pip_in_tile[0].split('/')[1]
@@ -223,6 +233,8 @@ def get_bits_for_short(design:DesignQuery, tilegrid_info:dict, INT_tiles:set, de
             except KeyError:
                 break
     
+    print('The provided design is not complex enough to create a short between two nets, '
+         + 'please use a more complex design')
     return []
 
 
@@ -294,7 +306,8 @@ def get_errorless_bits(design:DesignQuery, tilegrid_info:dict, CLB_tiles:set, IN
                        CLB tiles, set of all INT tiles, part name
             Returns: list of errorless fault bits
     '''
-
+    
+    unmapped_CLB = 'NA'
     # Iterate through CLB tiles and find one with no cells mapped to it
     for CLB_tile in CLB_tiles:
         design.query_cells(CLB_tile)
@@ -308,6 +321,10 @@ def get_errorless_bits(design:DesignQuery, tilegrid_info:dict, CLB_tiles:set, IN
             unmapped_CLB = CLB_tile
             break
 
+    # Error detection if someone decides to use a design where every single CLB is used
+    if unmapped_CLB == 'NA':
+        print('The provided design utilizes every single CLB tile, please use a less complex design')
+        return []
 
     # Build tile object for the unused CLB tile
     tile_type_CLB = get_tile_type_name(unmapped_CLB)
@@ -323,12 +340,18 @@ def get_errorless_bits(design:DesignQuery, tilegrid_info:dict, CLB_tiles:set, IN
 
     #--------------------------Repeat for INT tile--------------------------------#
 
+    unmapped_INT = 'NA'
     # Iterate through INT tiles and find one with no nets routed through it
     for INT_tile in INT_tiles:
         design.query_nets(INT_tile)
         if INT_tile not in design.nets.keys() or design.nets[INT_tile] == {}:
             unmapped_INT = INT_tile
             break
+
+    # Error detection if someone decides to use a design where every single INT is used
+    if unmapped_INT == 'NA':
+        print('The provided design utilizes every single INT tile, please use a less complex design')
+        return []
 
     # Build tile object for the unused INT tile
     tile_type_INT = get_tile_type_name(unmapped_INT)
@@ -382,6 +405,10 @@ def find_fault_bits(bitstream:str, dcp:str, run_bfat:bool):
 
     bit_groups = [LUT_bit_group, open_bit_group, short_bit_group, short_uc_node_bit_group, undef_bit_group,
                   errorless_bit_group]
+
+    # End the program if any of the sample cases are impossible to create in the design
+    if [] in bit_groups:
+        return
     
     # Get filename of bitstream without extension
     bitstream_filename = bitstream.split('/')[-1].split('.')[0]
