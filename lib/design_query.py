@@ -10,7 +10,6 @@ from abc import ABCMeta, abstractmethod
 from subprocess import Popen, PIPE, STDOUT
 from threading import Thread
 from queue import Queue, Empty
-from time import sleep
 
 ###################################
 #  VivadoQuery Outstream Classes  #
@@ -42,9 +41,11 @@ class OutStreamReader:
             while True:
                 line = stream.readline()
 
-                # Add line to queue if it exists
+                # Add line to queue if it exists and contains information
                 if line:
-                    queue.put(line)
+                    # Add line if is not just a newline char
+                    if line.strip():
+                        queue.put(line.strip())
                 else:
                     raise UnexpectedEndOfStream
 
@@ -357,9 +358,12 @@ class VivadoQuery(DesignQuery):
         # Check that Vivado pipe opened correctly and run initial tcl commands through Vivado
         try:
             # Open design checkpoint dcp
-            self.run_command('readCheckpoint', dcp, timeout=2.5)
+            self.run_command('readCheckpoint', dcp)
             # Remove the character limit on vivado command output
-            self.run_command('setDisplayLimit', '0')
+            self.run_command('setDisplayLimit', 0)
+            # Edit tcl message config to enable output to be parsed
+            self.run_command('supressInfoMsgs')
+            self.run_command('setMsgLimit', 10000)
             # Get part name for the design from vivado and save it
             self.part = self.run_command('getDesignPart')
             # Query any information on global logic nets
@@ -402,7 +406,7 @@ class VivadoQuery(DesignQuery):
                 Arguments: String of the tile to query
         '''
 
-        tile_nets = self.run_command('getTileNets', tile, timeout=0.55)
+        tile_nets = self.run_command('getTileNets', tile)
 
         # Verify that nets were found for the tile
         if tile_nets and tile_nets != 'NA':
@@ -433,7 +437,7 @@ class VivadoQuery(DesignQuery):
                 Arguments: String of the net to query
         '''
 
-        pips = self.run_command('getNetPIPs', net, timeout=0.08)
+        pips = self.run_command('getNetPIPs', net)
 
         # Check that PIPs were found for the given net
         if pips and pips != 'NA':
@@ -511,7 +515,7 @@ class VivadoQuery(DesignQuery):
 
         # Iterate through each net in the design
         for net in gl_nets:
-            net_pips = self.run_command('getNetPIPs', net, timeout=0.05)
+            net_pips = self.run_command('getNetPIPs', net)
 
             # Check that PIPs were found for the given net
             if net_pips and net_pips != 'NA':
@@ -539,7 +543,7 @@ class VivadoQuery(DesignQuery):
     #   Vivado Interfacing   #
     ##########################
 
-    def run_command(self, cmd:str, arg1='', arg2='', timeout=0.03):
+    def run_command(self, cmd:str, arg1='', arg2=''):
         '''
             Generates the appropriate tcl command to run in vivado through
             the open pipe and get the results back.
@@ -553,7 +557,9 @@ class VivadoQuery(DesignQuery):
             # Top-level commands
             'readCheckpoint' : f'open_checkpoint {arg1}\n',
             'setDisplayLimit' : f'set_param tcl.collectionResultDisplayLimit {arg1}\n',
-            'getDesignPart' : f'puts [get_property PART [current_design]]\n',
+            'supressInfoMsgs' : 'set_msg_config -severity INFO -suppress\n',
+            'setMsgLimit' : f'set_param messaging.defaultLimit {arg1}\n',
+            'getDesignPart' : 'puts [get_property PART [current_design]]\n',
             # Net Commands
             'getNets' : f'puts [get_nets -hierarchical {arg1}*]\n',
             'getNetPIPs' : f'puts [get_pips -of [get_nets {arg1}] {arg2}*]\n',
@@ -594,56 +600,68 @@ class VivadoQuery(DesignQuery):
 
             # Select python object return type based in the command run
             if cmd in str_cmds:
-                return self.get_vivado_output(timeout, ret_list=False)
+                return self.get_vivado_output(cmd, ret_list=False)
+            elif cmd not in ['setDisplayLimit', 'supressInfoMsgs', 'setMsgLimit']:
+                return self.get_vivado_output(cmd)
             else:
-                return self.get_vivado_output(timeout)
+                return 'NA'
         else:
             return 'NA'
     
-    def get_vivado_output(self, timeout:float, ret_list=True):
+    def get_vivado_output(self, cmd:str, ret_list=True):
         '''
             Reads the latest output from the running vivado instance through the open
             pipe, formats it into the correct python data structure, and returns it
-                Arguments: Float of the timeout for waiting for an result from vivado and 
-                           a bool indicating if a list is expected to be returned
+                Arguments: String of the command being run and a bool indicating
+                           if a list is expected to be returned
                 Returns: List or string of the output from vivado for the provided command
         '''
 
-        end_of_stream = False
-        second_attempt = False
-        raw_out = None
+        end_reached = False
 
-        # Read in the next line until end of file is reached
-        while not end_of_stream:
-            current_line = self.outstream.readline(timeout)
+        # Read output stream as needed by the command running
+        if cmd == 'readCheckpoint':
+            # Get the next line until the last line output by reading a dcp is output
+            while not end_reached:
+                line = self.outstream.readline()
 
-            # Store current line as raw_out until end reached, then end loop
-            if not current_line and second_attempt:
-                end_of_stream = True
-            elif not current_line and not second_attempt:
-                second_attempt = True
-                sleep(timeout)
-            else:
-                raw_out = current_line
-                second_attempt = False
-        
-        # Check that raw_out is not None type
+                # If the current line contains the indiciting substring return default value
+                if line and 'open_checkpoint: Time (s):' in line:
+                    return 'NA'
+        else:
+            # Get the next line until a real line is output that isn't just a newline
+            while not end_reached:
+                line = self.outstream.readline()
+
+                # Save the raw output and flag the end of reading from the outstream
+                if line and line != '\n':
+                    end_reached = True
+                    raw_out = line
+
+                    # Remove all WARNING messages when a command comes back as invalid
+                    if 'WARNING' in line:
+                        # Continue reading in lines from the outstream until all messages are gone
+                        while line:
+                            line = self.outstream.readline()
+
+        # Check that raw output is not a system message
         if raw_out and 'WARNING:' not in raw_out and 'ERROR:' not in raw_out:
-            # Return either a string or list from the vivado output as indicated by ret_list param
+            # Return a string or list from the vivado output as indicated by ret_list parameter
             if ret_list:
                 out = []
-                raw_out = raw_out.strip().split(' ')
+                raw_out = raw_out.split(' ')
                 
                 # Remove any elements surrounded by <> from the list
                 for element in raw_out:
                     # Check if current element if surrounded by <>
-                    if '<' in element and '>' in element and element.find('>') > element.find('<'):
+                    # if '<' in element and '>' in element:
+                    if element[0] == '<' and element[-1] == '>':
                         continue
                     elif element:
                         out.append(element)
                 return out
             else:
-                return raw_out.strip()
+                return raw_out
 
         return 'NA'
 
