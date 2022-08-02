@@ -377,10 +377,11 @@ def find_fault_bits(bitstream:str, dcp:str, run_bfat:bool):
     '''
 
     # Get the high bits in the bitstream and the part name
-    design_bits, part_name = get_high_bits(bitstream)
+    design_bits = get_high_bits(bitstream)
 
     # Create data structure of the design
     design_query = VivadoQuery(dcp)
+    part_name = design_query.part
 
     # Get the tilegrid information for the part
     tilegrid_info = parse_tilegrid(part_name)
@@ -416,10 +417,17 @@ def find_fault_bits(bitstream:str, dcp:str, run_bfat:bool):
     with open(fault_bits_file_path, 'w') as faults_file:
         faults_file.write(bit_groups_json)
 
+
     # If run flag was set, run the generated files through BFAT
     if run_bfat:
+        bits_file_path = f'{bitstream}s'
+        # Write design bits from bitread to a file so it can be passed in to bfat
+        with open(bits_file_path, "w") as bits_file:
+            for bit in design_bits:
+                bits_file.write(bit + "\n")
+
         # Bash command to run BFAT
-        run_cmd = ["python3", "bfat.py", bitstream, dcp, fault_bits_file_path]
+        run_cmd = ["python3", "bfat.py", bits_file_path, dcp, fault_bits_file_path, '-bf']
 
         # Run BFAT as a subprocess
         cmd_run = subprocess.run(run_cmd, capture_output=True, text=True)
