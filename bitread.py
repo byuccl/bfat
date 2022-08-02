@@ -48,11 +48,41 @@ def bits_to_int(binary:list):
             Arguments: List of each bit in the number
             Returns: Integer of the binary's decimal value
     '''
+
     int_value = 0
     for i, bit in enumerate(binary):
         int_value = int_value + bit*(2**i)
     return int_value
-            
+
+
+def read_bytes_ascii(bitfile):
+    '''
+        Looks at the next two bytes in the bitstream to determine the length of the field
+        and reads the specified number of bytes into a string format
+            Arguments: Opened bitstream, flag to determine if the bytes should be kept or not
+            Returns: String of the field's ascii representation of the bytes
+    '''
+
+    # Read two bytes from the bitstream, which specify the number of bytes in the next field
+    two_bytes = [ord(bitfile.read(1)), ord(bitfile.read(1))]
+
+    # Convert bytes to binary
+    read_len_bits = []
+    for curr_byte in reversed(two_bytes):
+        for i in range(8):
+            read_len_bits.append((curr_byte >> i) & 1)
+
+    # Convert binary to decimal and read number of bytes specified      
+    read_len = bits_to_int(read_len_bits)
+
+    # Parse part name from the number of bytes specified
+    field_str = '' 
+    for _ in range(read_len):
+        curr_byte = ord(bitfile.read(1))
+        field_str += chr(curr_byte)
+    
+    return field_str
+
 
 ##################################################
 #      Organize main function into sections      #
@@ -66,40 +96,31 @@ def find_config_packet(bitfile):
             Returns: String of the part name
     ''' 
 
+    # First field in the header provides no useful information, skip it
+    read_bytes_ascii(bitfile)
+
+    # Second field should be the letter 'a'
+    a_char = read_bytes_ascii(bitfile)
+    if a_char != 'a':
+        raise Exception('Unrecognized bitstream format') 
+
+    # Next field should be the design name along with other information, we do not need it
+    read_bytes_ascii(bitfile)
+    bitfile.read(1)
+
+    # Next field is the part name, get it
+    part_name = read_bytes_ascii(bitfile)[:-1]
+    # Series-7 names from the bitstream are incomplete
+    if part_name[0] == '7':
+        part_name = "xc" + part_name + "-1"
+
     # Decimal form of the sync word 0xAA995566
     SYNC_WORD = 2862175590
-    
-    # Flag used to determine whether we have found the sync word and left the bitstream header
     sync_word_found = False
 
-    # Search for the sync word, which marks where the division for 32-bit words begins
+    # Read bytes until the sync word is found
     while not sync_word_found:
         byte = bitfile.read(1)
-
-        # Pull the part name from the bitstream
-        if ord(byte) == 98:
-            # The length of the part name in bytes is stored in the next two bytes
-            two_bytes = [ord(bitfile.read(1)), ord(bitfile.read(1))]
-
-            # Convert bytes to binary
-            part_name_len_bits = []
-            for curr_byte in reversed(two_bytes):
-                for i in range(8):
-                    part_name_len_bits.append((curr_byte >> i) & 1)
-            
-            # Convert binary to decimal, subtract 1 because there is always one 0x00 byte of padding        
-            part_name_len = bits_to_int(part_name_len_bits) - 1
-            
-            # Parse part name from the number of bytes specified
-            part = '' 
-            for i in range(part_name_len):
-                curr_byte = ord(bitfile.read(1))
-                part += chr(curr_byte)
-
-            # Series-7 names from the bitstream are incomplete
-            if part[0] == '7':
-                part = "xc" + part + "-1"
-
         # Check if current byte is equal to first byte of sync word (0xAA = 170)    
         if ord(byte) == 170:
             # Move back one byte in the file and check if the whole word is equal to the sync word
@@ -107,9 +128,7 @@ def find_config_packet(bitfile):
             if bits_to_int(parse_word(bitfile)) == SYNC_WORD:
                 sync_word_found = True
 
-    # Flag used to determine whether we have entered the type 2 configuration packet
     in_config_data = False
-
     # Search for the start of the type 2 packet, which is where the configuration frames are
     while not in_config_data:
         word = parse_word(bitfile)               
@@ -118,8 +137,8 @@ def find_config_packet(bitfile):
             in_config_data = True
 
     # We have read the bitstream up until the main configuration packet, exit the function
-    return part
-
+    return part_name    
+    
 
 def get_frame_list(part:str):
     '''
