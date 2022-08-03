@@ -53,7 +53,11 @@ BFAT requires python 3.8 or later. Install a supported version if you do not alr
 ```
     source /opt/Xilinx/Vivado/<vivado_version>/settings64.sh
 ```
+<<<<<<< HEAD
+* Note that this is the default path. Vivado may be installed in a different directory on your machine.
+=======
 * Note that this is the default directory, the settings file may be in a different location on your machine
+>>>>>>> d526c9c4daff72b6d60da5420884ea3bc465c900
 
 2. Run the bfat.py script providing it with:
     - The bitstream of the design to be analyzed
@@ -62,6 +66,11 @@ BFAT requires python 3.8 or later. Install a supported version if you do not alr
     - A list of fault bits to evaluate in a .json file (see `docs/fault_bit_lists.md` for details on formatting)
 
 3. (Optional) Using the `-of` flag you can specify the file the fault report will be output to. If not used, the report will be saved to a file with a generated name in the current directory.
+
+Template command to run BFAT:
+```
+    python3 bfat.py <bitstream> <dcp> <fault_bits>
+```
 
 To see more specifics on running BFAT, look at the help information provided by running `python3 bfat.py -h`
 

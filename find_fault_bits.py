@@ -35,12 +35,13 @@
 
     Optional flags:
         -run [-r]: Bitstream, dcp, and fault bits will be run through BFAT
+        -debug [-d] Verbose printing after major function returns for debug purposes
 
     Returns:
         -output file (.json) in the working directory that contains the fault bits
 '''
 
-from bfat import get_tile_type_name
+from bfat import get_tile_type_name, debug_print
 from bitread import get_high_bits, get_frame_list
 from lib.design_query import DesignQuery, VivadoQuery
 from lib.file_processing import parse_tilegrid
@@ -49,18 +50,21 @@ from lib.bit_definitions import bit_bitstream_addr
 import subprocess
 import json
 import os
+import time
 
-
-def get_bit_in_LUT(design:DesignQuery, tilegrid_info:dict, CLB_tiles:set, part_name:str):
+def get_bit_in_LUT(design:DesignQuery, tilegrid_info:dict, part_name:str):
     '''
         Determines what bit must be flipped in order to create a LUT fault
             Arguments: Design query object, tilegrid information for the part, set of
-                       all CLB tiles, part name
+                       all used CLB tiles, part name
             Returns: list of fault bits required to affect the LUT
     '''
 
+    # Get all used CLB tiles
+    used_CLB_tiles = design.get_CLB_tiles(True)
+
     # Iterate through tiles, sites, and resources until a LUT is found
-    for tile_name in CLB_tiles:
+    for tile_name in used_CLB_tiles:
 
         # Query design for cells in the tile, skip iteration of loop if the tile is empty
         design.query_cells(tile_name)
@@ -123,16 +127,16 @@ def get_bit_in_LUT(design:DesignQuery, tilegrid_info:dict, CLB_tiles:set, part_n
     return [bitstream_addr[4:].replace('_', ' ')]
 
 
-def get_bit_for_open(design:DesignQuery, tilegrid_info:dict, INT_tiles:set, part_name:str):
+def get_bit_for_open(design:DesignQuery, tilegrid_info:dict, used_INT_tiles:set, part_name:str):
     '''
         Determines what bits must be flipped to create an open in a net of the design
             Arguments: Design query object, tilegrid information for the part, set of
-                       all INT tiles, part name
+                       used INT tiles, part name
             Returns: List of bits required to create open
     '''
 
     # Iterate through INT tiles until a suitable pip to open is found
-    for tile_name in INT_tiles:
+    for tile_name in used_INT_tiles:
         # Query the design for nets in the tile, skip iteration if no nets are found
         design.query_nets(tile_name)
         if tile_name not in design.nets:
@@ -167,7 +171,11 @@ def get_bit_for_open(design:DesignQuery, tilegrid_info:dict, INT_tiles:set, part
 
     # Get the first bit in the given pip's bit rule
     try:
-        pip_rule_bit = tile_obj.pips[sink][src][0]
+        # Edge case for VCC or GND
+        if src == 'VCC_WIRE' or src == 'GND_WIRE':
+            pip_rule_bit = tile_obj.resources[sink].row_bits[0]
+        else:
+            pip_rule_bit = tile_obj.pips[sink][src][0]
     except KeyError:
         print("The given pip does not exist")
         return
@@ -183,11 +191,12 @@ def get_bit_for_open(design:DesignQuery, tilegrid_info:dict, INT_tiles:set, part
     return [bitstream_addr[4:].replace('_', ' ')]
 
 
+# TODO: Get all tiles with at least two nets?
 def get_bits_for_short(design:DesignQuery, tilegrid_info:dict, INT_tiles:set, design_bits:list, part_name:str, uc_node:bool):
     '''
         Determines what bits must be flipped to create a short between nets in the design
             Arguments: Design query object, tilegrid information for the part, list of high bits
-                       in the bitstream, part name, set of all INT tiles, flag to determine
+                       in the bitstream, part name, set of used INT tiles, flag to determine
                        whether the short should be with a net or an unconnected node
              Returns: List of bits required to create short
     '''
@@ -223,7 +232,7 @@ def get_bits_for_short(design:DesignQuery, tilegrid_info:dict, INT_tiles:set, de
                 # Iterate through all sources of the current sink
                 for src in tile_obj.pips[active_pip[1]]:
                     # Depending on the uc_node flag, check to make sure that either a net or an unconnected
-                    # node is routed throguh the current source
+                    # node is routed through the current source
                     if src != active_pip[0] and src in design.nets[tile_name] and not uc_node:
                         # Model a pip using the source and sink which have been found
                         inactive_pip = [src, active_pip[1]]
@@ -317,17 +326,20 @@ def get_undefined_bit(part:str):
     return [bitstream_addr]
 
 
-def get_errorless_bits(design:DesignQuery, tilegrid_info:dict, CLB_tiles:set, INT_tiles:set, part_name:str):
+def get_errorless_bits(design:DesignQuery, tilegrid_info:dict, used_INT_tiles:set, part_name:str):
     '''
         Determines a CLB bit and an INT bit which will not cause an error in the design
-            Arguments: Design query object, tilegrid information for the part, set of all
-                       CLB tiles, set of all INT tiles, part name
+            Arguments: Design query object, tilegrid information for the part,
+            set of all used INT tiles, part name
             Returns: list of errorless fault bits
     '''
     
+    # Get all CLB tiles with unused slices
+    unused_CLB_tiles = design.get_CLB_tiles(False)
+
     unmapped_CLB = 'NA'
     # Iterate through CLB tiles and find one with no cells mapped to it
-    for CLB_tile in CLB_tiles:
+    for CLB_tile in unused_CLB_tiles:
         design.query_cells(CLB_tile)
         # The tile has no cells if it doesn't get added to the dictionary for design cells
         if CLB_tile not in design.cells.keys():
@@ -358,9 +370,12 @@ def get_errorless_bits(design:DesignQuery, tilegrid_info:dict, CLB_tiles:set, IN
 
     #--------------------------Repeat for INT tile--------------------------------#
 
+    all_INT_tiles = {tile for tile in tilegrid_info.keys() if 'INT' in tile}
+    unused_INT_tiles = all_INT_tiles - used_INT_tiles
+
     unmapped_INT = 'NA'
     # Iterate through INT tiles and find one with no nets routed through it
-    for INT_tile in INT_tiles:
+    for INT_tile in unused_INT_tiles:
         design.query_nets(INT_tile)
         if INT_tile not in design.nets.keys() or design.nets[INT_tile] == {}:
             unmapped_INT = INT_tile
@@ -391,7 +406,7 @@ def get_errorless_bits(design:DesignQuery, tilegrid_info:dict, CLB_tiles:set, IN
     return [CLB_bitstream_addr[4:].replace('_', ' '), INT_bitstream_addr[4:].replace('_', ' ')]
 
 
-def find_fault_bits(bitstream:str, dcp:str, run_bfat:bool):
+def find_fault_bits(bitstream:str, dcp:str, run_bfat:bool, debug:bool):
     '''
         Generates a list of example fault bits for the given design
             Arguments: Bitstream for design, Vivado checkpoint of implemented design,
@@ -399,34 +414,52 @@ def find_fault_bits(bitstream:str, dcp:str, run_bfat:bool):
             Returns: list of fault bits (.txt)
     '''
 
+    t_start = time.perf_counter()
+
     # Get the high bits in the bitstream and the part name
     design_bits = get_high_bits(bitstream)
+    debug_print(f'Parsed bitstream file:\t\t\t{round(time.perf_counter()-t_start, 2)} sec', debug)
 
     # Create data structure of the design
     design_query = VivadoQuery(dcp)
     part_name = design_query.part
+    debug_print(f'Created design query:\t\t\t{round(time.perf_counter()-t_start, 2)} sec', debug)
+
+    # Get all used INT tiles
+    used_INT_tiles = design_query.get_used_INT_tiles()
+    debug_print(f'Retrieved used INT tiles:\t\t\t{round(time.perf_counter()-t_start, 2)} sec', debug)
 
     # Get the tilegrid information for the part
     tilegrid_info = parse_tilegrid(part_name)
+    debug_print(f'Parsed tilegrid information:\t\t{round(time.perf_counter()-t_start, 2)} sec', debug)
 
-    # Generate sets of the names of important tile types
-    CLB_tiles = {tile for tile in tilegrid_info.keys() if 'CLB' in tile}
-    INT_tiles = {tile for tile in tilegrid_info.keys() if 'INT' in tile}
+
 
     # Retrieve the fault bit groups for each of the test cases
-    LUT_bit_group = get_bit_in_LUT(design_query, tilegrid_info, CLB_tiles, part_name)
-    open_bit_group = get_bit_for_open(design_query, tilegrid_info, INT_tiles, part_name)
-    short_bit_group = get_bits_for_short(design_query, tilegrid_info, INT_tiles, design_bits, part_name, False)
-    short_uc_node_bit_group = get_bits_for_short(design_query, tilegrid_info, INT_tiles, design_bits, part_name, True)
-    undef_bit_group = get_undefined_bit(part_name)
-    errorless_bit_group = get_errorless_bits(design_query, tilegrid_info, CLB_tiles, INT_tiles, part_name)
+    LUT_bit_group = get_bit_in_LUT(design_query, tilegrid_info, part_name)
+    debug_print(f'Generated LUT bit group:\t\t{round(time.perf_counter()-t_start, 2)} sec', debug)
 
+    open_bit_group = get_bit_for_open(design_query, tilegrid_info, used_INT_tiles, part_name)
+    debug_print(f'Generated net open bit group:\t\t{round(time.perf_counter()-t_start, 2)} sec', debug)
+
+    short_bit_group = get_bits_for_short(design_query, tilegrid_info, used_INT_tiles, design_bits, part_name, False)
+    debug_print(f'Generated net short bit group:\t\t{round(time.perf_counter()-t_start, 2)} sec', debug)
+
+    short_uc_node_bit_group = get_bits_for_short(design_query, tilegrid_info, used_INT_tiles, design_bits, part_name, True)
+    debug_print(f'Generated net and UC node bit group:\t{round(time.perf_counter()-t_start, 2)} sec', debug)
+
+    undef_bit_group = get_undefined_bit(part_name)
+    debug_print(f'Generated undefined bit group:\t\t{round(time.perf_counter()-t_start, 2)} sec', debug)
+
+    errorless_bit_group = get_errorless_bits(design_query, tilegrid_info, used_INT_tiles, part_name)
+    debug_print(f'Generated errorless bit group:\t\t{round(time.perf_counter()-t_start, 2)} sec', debug)
+
+
+
+    # Compile all generated bit groups into one list
     bit_groups = [LUT_bit_group, open_bit_group, short_bit_group, short_uc_node_bit_group, undef_bit_group,
                   errorless_bit_group]
-
-    # End the program if any of the sample cases are impossible to create in the design
-    if [] in bit_groups:
-        return
+    bit_groups = [bit_group for bit_group in bit_groups if bit_group != []]
     
     # Get filename of bitstream without extension
     bitstream_filename = bitstream.split('/')[-1].split('.')[0]
@@ -443,7 +476,7 @@ def find_fault_bits(bitstream:str, dcp:str, run_bfat:bool):
     # Open file to write fault bits to
     with open(fault_bits_file_path, 'w') as faults_file:
         faults_file.write(bit_groups_json)
-
+    debug_print(f'Fault bit list file created:\t\t{round(time.perf_counter()-t_start, 2)} sec', debug)
 
     # If run flag was set, run the generated files through BFAT
     if run_bfat:
@@ -465,6 +498,8 @@ def find_fault_bits(bitstream:str, dcp:str, run_bfat:bool):
             print(cmd_run.stderr)
         else:
             print(cmd_run.stdout.strip())
+        
+        debug_print(f'Ran BFAT:\t\t{round(time.perf_counter()-t_start, 2)} sec', debug)
 
 
 if __name__ == '__main__':
@@ -477,6 +512,7 @@ if __name__ == '__main__':
     PARSER.add_argument('dcp_file', help='Vivado checkpoint of the implemented design')
     PARSER.add_argument('-r', '--run', action='store_true', default='', help='Run the given design '
                         + 'files and generated fault bits through BFAT')
+    PARSER.add_argument('-d', '--debug', action='store_true', default='', help='Give timing information')
     ARGS = PARSER.parse_args()
 
-    find_fault_bits(ARGS.bitstream, ARGS.dcp_file, ARGS.run)
+    find_fault_bits(ARGS.bitstream, ARGS.dcp_file, ARGS.run, ARGS.debug)
