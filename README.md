@@ -4,7 +4,7 @@
 
 ## About:
 
-BFAT is a tool used for analysis of of a design's bitstream to evaluate and report any relevant information about given fault bits as well as any errors that they would cause in the design's implementation. BFAT is being used for research purposes and is currently under development. So far BFAT supports most Xilinx 7-Series FPGAs that are documented in the [Project X-Ray database](https://github.com/f4pga/prjxray-db). The full list of parts can be found below in the "Supported Parts" section. 
+BFAT is a tool used for analysis of a design's bitstream to evaluate and report any relevant information about given fault bits as well as any errors that they would cause in the design's implementation. BFAT is being used for research purposes and is currently under development. So far BFAT supports most Xilinx 7-Series FPGAs that are documented in the [Project X-Ray database](https://github.com/f4pga/prjxray-db). The full list of parts can be found below in the "Supported Parts" section. 
 
 BFAT consists of the following scripts:
 
@@ -43,7 +43,7 @@ Clone the BFAT repo from Github along with its submodule
 To get the data from the provided checkpoint file, BFAT will open a pipe to Vivado and retrieve information through tcl commands. Make sure that you have Vivado installed on your system
 * We recommend version 2021.2 or later, as earlier versions are untested and we cannot guarantee that they will work
 
-BFAT requires python 3.9 or later. Install a supported version if you do not already have one in your system.
+BFAT requires python 3.8 or later. Install a supported version if you do not already have one in your system.
 
 ---
 
@@ -53,6 +53,7 @@ BFAT requires python 3.9 or later. Install a supported version if you do not alr
 ```
     source /opt/Xilinx/Vivado/<vivado_version>/settings64.sh
 ```
+* Note that this is the default directory, the settings file may be in a different location on your machine
 
 2. Run the bfat.py script providing it with:
     - The bitstream of the design to be analyzed
