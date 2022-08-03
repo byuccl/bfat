@@ -320,9 +320,9 @@ def main():
 
     # Parse in all high bits from the bitstream or from a .bits file [base_frame, word, bit]
     if ARGS.bits_file:
-        design_bits = parse_design_bits(ARGS.bits)
+        design_bits = parse_design_bits(ARGS.bitstream)
     else:
-        design_bits = get_high_bits(ARGS.bits)
+        design_bits = get_high_bits(ARGS.bitstream)
     debug_print(f'Design Bits Read In:\t\t{round(time.perf_counter()-t_start, 2)} sec', ARGS.debug)
 
     # Create a design query to get design info from the dcp file
@@ -367,7 +367,7 @@ if __name__ == '__main__':
                                                 + 'bits to report the identities and the effects '
                                                 + 'of the flipped values of each fault bit on '
                                                 + 'the design.')
-    PARSER.add_argument("bits", help='Bitstream file of the design to be analyzed')
+    PARSER.add_argument("bitstream", help='Bitstream file of the design to be analyzed')
     PARSER.add_argument('dcp_file', help='Vivado checkpoint file of the implemented design')
     PARSER.add_argument('fault_bits', help='Json file listing bits of interest')
     PARSER.add_argument('-bf', '--bits_file', action='store_true', default='',
