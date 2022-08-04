@@ -53,11 +53,7 @@ BFAT requires python 3.8 or later. Install a supported version if you do not alr
 ```
     source /opt/Xilinx/Vivado/<vivado_version>/settings64.sh
 ```
-<<<<<<< HEAD
 * Note that this is the default path. Vivado may be installed in a different directory on your machine.
-=======
-* Note that this is the default directory, the settings file may be in a different location on your machine
->>>>>>> d526c9c4daff72b6d60da5420884ea3bc465c900
 
 2. Run the bfat.py script providing it with:
     - The bitstream of the design to be analyzed
