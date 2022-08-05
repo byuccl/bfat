@@ -12,7 +12,7 @@ The guide will be going through a sample fault report with some of the most comm
     python3 find_fault_bits.py <design_bitstream_file> <design_checkpoint_file> -r
 ```
 
-This command will generate a `.json` file of sample fault bits to apply to the design in the same directory that your bitstream is located in. It will then run those bits through BFAT, producing an example fault report with the exact same kinds of faults as the ones used in this guide. However, the fault reports will not be identical, since the design is different and will be placed on and routed through different tiles.
+This command will generate a `.json` file of sample fault bits to apply to the design in the same directory that your bitstream is located in. It will then run those bits through BFAT, producing an example fault report with the exact same kinds of faults as the ones used in this guide. However, the fault reports will not be identical, since the design is different and will be placed on and routed through different tiles. Do note that `find_fault_bits.py` is non-deterministic and will produce a different output for the same set of input design files. This is because the script is only trying to generate certain types of faults (LUT fault, net open, net short, etc.), and there are usually many different bits that can cause each type of fault.
 
 ## Sample Fault Report:
 
