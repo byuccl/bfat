@@ -342,6 +342,18 @@ class DesignQuery(object):
         else:
             print('No wires queried from design')
 
+    ###########################################
+    #   Abstract find_fault_bits.py Helpers   #
+    ###########################################
+
+    @abstractmethod
+    def get_CLB_tiles(self, used:bool):
+        pass
+
+    @abstractmethod
+    def get_INT_tiles(self):
+        pass
+
 class VivadoQuery(DesignQuery):
     '''
         Design query through running vivado with an open subprocess pipe
@@ -594,6 +606,8 @@ class VivadoQuery(DesignQuery):
             'getTileSites' : f'puts [get_sites -of [get_tiles {arg1}]]\n',
             'getTileNets' : f'puts [get_nets -of [get_tiles {arg1}]]\n',
             'getTileWires' : f'set names []; foreach w [get_wires -of [get_tiles {arg1}]]' + ' {lappend names [string range $w [string last "/" $w]+1 [string length $w]] }; puts $names\n',
+            'getCLBTiles' : f'puts [get_tiles -of [get_sites -filter IS_USED=={arg1} SLICE*]]\n',
+            'getINTTiles' : f'puts [get_tiles -of [get_nets] INT*]\n',
             # PIP Commands
             'getPIPNet' : f'puts [get_nets -of [get_pips {arg1}]]\n',
             # Cell Commands
@@ -662,6 +676,10 @@ class VivadoQuery(DesignQuery):
 
                 # Save the raw output and flag the end of reading from the outstream
                 if line and line != '\n':
+                    # On very large function returns, two extra lines are given before the return
+                    if 'tcmalloc: large alloc' in line or 'Time (s)' in line:
+                        continue
+
                     end_reached = True
                     raw_out = line
 
@@ -783,3 +801,26 @@ class VivadoQuery(DesignQuery):
                         affected_resources.union(self.trace_cells(tile, site, net_cell, affected_resources))
         
         return affected_resources
+
+    ##################################
+    #   find_fault_bits.py Helpers   #
+    ##################################
+
+    def get_CLB_tiles(self, used:bool):
+        '''
+            Gets all CLB tiles that have either used or unused sites
+                Arguments: bool to determine whether used or unused tiles should be gathered
+                Returns: set of tile names
+        '''
+
+        tiles = self.run_command('getCLBTiles', used)
+        return set(tiles)
+
+    def get_used_INT_tiles(self):
+        '''
+            Gets all INT tiles with utilized switchboxes
+                Returns: set of tile names
+        '''
+
+        tiles = self.run_command('getINTTiles')
+        return set(tiles)
