@@ -235,7 +235,7 @@ class DesignQuery(object):
     #   Abstract Affected Resource Tracing   #
     ##########################################
 
-    def get_affected_rsrcs(self, net:str, init_tile:str, init_sink_node:str):
+    def get_affected_rsrcs(self, net:str, init_tile:str, init_sink_wire:str):
         '''
             Wrapper function for recursive function trace_affected_resources
                 Arguments: Strings of the net to trace and the tile and sink node to
@@ -247,7 +247,7 @@ class DesignQuery(object):
         init_rsrcs = set()
         traced_nodes = set()
         affected_rsrcs, traced_nodes = self.trace_affected_resources(net,
-                                                init_tile, init_sink_node,
+                                                init_tile, init_sink_wire,
                                                 traced_nodes, init_rsrcs)
 
         return list(affected_rsrcs)
@@ -573,14 +573,20 @@ class VivadoQuery(DesignQuery):
     #   Vivado Interfacing   #
     ##########################
 
-    def run_command(self, cmd:str, arg1='', arg2=''):
+    def run_command(self, cmd:str, arg1=None, arg2=None):
         '''
             Generates the appropriate tcl command to run in vivado through
             the open pipe and get the results back.
-                Arguments: String of the command name, two strings of argument inputs,
+                Arguments: String of the command name, two optional strings of argument inputs
                 Return: List or string of the output from vivado for the provided command
         '''
         
+        # Set default values of args 1 and 2
+        if arg1 is None:
+            arg1 = ''
+        if arg2 is None:
+            arg2 = ''
+
         # Select tcl command and format in the provided args if needed
         tcl = {
             # Top-level commands
@@ -614,16 +620,17 @@ class VivadoQuery(DesignQuery):
             # Node Commands
             'getNodeSite' : f'puts [get_sites -of [get_site_pins -of [get_nodes {arg1}]]]\n',
             'getNodeSitePin' : f'puts [get_site_pins -of [get_nodes {arg1}]]\n',
+            'getNodeWires' : f'puts [get_wires -of [get_nodes {arg1}]]\n',
             # Wire Commands
             'getWireConnections' : f'puts [get_nodes -downhill -of_objects [get_nodes -of [get_wires {arg1}/{arg2}]]]\n',
-            'getWiresOfNode' : f'puts [get_wires -of [get_nodes {arg1}]]\n'
+            'getWireNode' : f'puts [get_nodes -of [get_wires {arg1}]]\n'
         }.get(cmd, '')
         
         # Return latest output from vivado if valid command, or return default value
         if tcl:
             # List of commands that return a string instead of a list
             str_cmds = ['getCellBEL', 'getPIPNet', 'getDesignPart', 'getPinNet',
-                        'getPinDirection', 'getNodeSite', 'getNodeSitePin']
+                        'getPinDirection', 'getNodeSite', 'getNodeSitePin', 'getWireNode']
 
             # Send input tcl command to running vivado pipe
             self.query.stdin.write(tcl)
@@ -639,7 +646,7 @@ class VivadoQuery(DesignQuery):
         else:
             return 'NA'
     
-    def get_vivado_output(self, cmd:str, ret_list=True):
+    def get_vivado_output(self, cmd:str, ret_list=None):
         '''
             Reads the latest output from the running vivado instance through the open
             pipe, formats it into the correct python data structure, and returns it
@@ -648,6 +655,9 @@ class VivadoQuery(DesignQuery):
                 Returns: List or string of the output from vivado for the provided command
         '''
 
+        # Set default values for bool flags
+        if ret_list is None:
+            ret_list = True
         end_reached = False
 
         # Read output stream as needed by the command running
@@ -680,20 +690,19 @@ class VivadoQuery(DesignQuery):
                             line = self.outstream.readline()
 
         # Check that raw output is not a system message
-        if raw_out and 'WARNING:' not in raw_out and 'ERROR:' not in raw_out:
+        if raw_out and 'WARNING:' not in raw_out and 'ERROR:' not in raw_out and 'Resolution:' not in raw_out:
             # Return a string or list from the vivado output as indicated by ret_list parameter
             if ret_list:
                 out = []
                 raw_out = raw_out.split(' ')
                 
-                # Remove any elements surrounded by <> from the list
-                for element in raw_out:
-                    # Check if current element if surrounded by <>
-                    # if '<' in element and '>' in element:
-                    if element[0] == '<' and element[-1] == '>':
+                # Remove any item surrounded by <> from the list
+                for item in raw_out:
+                    # Check if current item if surrounded by <>
+                    if item[0] == '<' and item[-1] == '>':
                         continue
-                    elif element:
-                        out.append(element)
+                    elif item:
+                        out.append(item)
                 return out
             else:
                 return raw_out
@@ -704,7 +713,7 @@ class VivadoQuery(DesignQuery):
     #   Affected Resource Tracing   #
     #################################
 
-    def trace_affected_resources(self, net:str, tile:str, node:str, traced_nodes:set, affected_rsrcs:set):
+    def trace_affected_resources(self, net:str, tile:str, wire:str, traced_nodes:set, affected_rsrcs:set):
         '''
             Recursively traces downstream through the net in the design from the provided
             tile and node.
@@ -714,13 +723,13 @@ class VivadoQuery(DesignQuery):
                          tracing this node
         '''
         
-        current_node = f'{tile}/{node}'
-        traced_nodes.add(current_node)    
-        node_wires = self.run_command('getWiresOfNode', current_node)    
+        current_node = self.run_command('getWireNode', f'{tile}/{wire}')
+        node_wires = self.run_command('getNodeWires', current_node)
+        traced_nodes.add(current_node)
         pips = self.get_pips(net)
 
         # Find any non-INT or same-tile wire connections for the initial node
-        sink_conns = {conn for conn in self.run_command('getWireConnections', tile, node)}
+        sink_conns = {conn for conn in self.run_command('getWireConnections', tile, wire)}
 
         # Trace each wire connection for initial cells used by the net in the current tile
         for conn in sink_conns:
@@ -734,7 +743,7 @@ class VivadoQuery(DesignQuery):
                 
                 init_cells = set()
 
-                # Get site info for the current node
+                # Get site info for the node matching the current wire
                 site = self.run_command('getNodeSite', conn)
                 site_pin = self.run_command('getNodeSitePin', conn)
 
@@ -752,11 +761,14 @@ class VivadoQuery(DesignQuery):
                 # Trace the site's affected cells from each of the initial cells found
                 [affected_rsrcs.union(self.trace_cells(conn_tile, site, cell, affected_rsrcs)) for cell in init_cells]
 
-            elif any([(pip[0] in node_wires and pip[1] == conn) for pip in pips]):
-                # Do not trace nodes that have already been traced
-                if (conn_tile, conn_node) not in traced_nodes:
-                    affected_rsrcs, traced_nodes = self.trace_affected_resources(net, conn_tile, conn_node,
-                                                                                traced_nodes, affected_rsrcs)
+            else:
+                # Check each pip if their nodes match wires from the current node and connection
+                conn_wires = self.run_command('getNodeWires', conn)
+                for pip in pips:
+                    # Check if current pip nodes matche wires and the node hasn't been traced yet
+                    if pip[0] in node_wires and pip[1] in conn_wires and conn not in traced_nodes:
+                        affected_rsrcs, traced_nodes = self.trace_affected_resources(net, conn_tile, conn_node,
+                                                                                     traced_nodes, affected_rsrcs)
 
         return affected_rsrcs, traced_nodes
 
@@ -784,7 +796,7 @@ class VivadoQuery(DesignQuery):
                 # Add cells to the affected resources and trace that cell for others
                 for net_cell in net_cells:
                     # Specify only different cells in the same tile
-                    if net_cell != cell and net_cell in self.cells[tile][site].values():
+                    if net_cell != cell and net_cell in self.cells[tile][site].values() and net_cell not in affected_resources:
                         affected_resources.add(net_cell)
                         affected_resources.union(self.trace_cells(tile, site, net_cell, affected_resources))
         

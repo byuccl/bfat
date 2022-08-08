@@ -94,6 +94,7 @@ def def_fault_bits(bit_groups:dict, tilegrid:dict, tile_imgs:dict, design_bits:l
 
             # Add any fault bits for INT tiles a dictionary under its tile
             if 'INT_L' in new_bit.tile or 'INT_R' in new_bit.tile:
+                # Create a new entry for tile if needed and add new bit to the tile's entry
                 try:
                     int_tiles[new_bit.tile].append(new_bit)
                 except KeyError:
@@ -102,6 +103,7 @@ def def_fault_bits(bit_groups:dict, tilegrid:dict, tile_imgs:dict, design_bits:l
 
             # Set the bit's fault description for CLB tiles
             if 'CLB' in new_bit.tile:
+                # Set CLB bit's description based on if an instanced cell is found for it
                 if new_bit.design_name == 'NA':
                     new_bit.fault = 'No instanced resource found for this bit'
                 else:
@@ -116,6 +118,7 @@ def def_fault_bits(bit_groups:dict, tilegrid:dict, tile_imgs:dict, design_bits:l
             tile_obj = copy.deepcopy(tile_imgs[tile[0:tile.find('_X')]])
             tile_obj.name = tile
             affected_muxes = set()
+
             # Add each affected routing mux to a list
             for f_bit in int_tiles[tile]:
                 affected_muxes.add(f_bit.resource.split(' ')[0])
@@ -126,7 +129,6 @@ def def_fault_bits(bit_groups:dict, tilegrid:dict, tile_imgs:dict, design_bits:l
                 for mux_source in tile_obj.pips[mux]:
                     # Set each config bit in the PIP to its original value
                     for pip_bit in tile_obj.pips[mux][mux_source]:
-                        cur_pip_bit = ''
                         # Get PIP config bit name independent of required value
                         if pip_bit[0] == '!':
                             cur_pip_bit = pip_bit[1:]
@@ -139,10 +141,10 @@ def def_fault_bits(bit_groups:dict, tilegrid:dict, tile_imgs:dict, design_bits:l
                         if bitstream_addr in design_bits:
                             tile_obj.change_bit(cur_pip_bit, 1)
 
+            # Evaluate fault errors in current tile
             tile_errors = eval_tile_errors(tile_obj, affected_muxes, int_tiles, design_bits, tilegrid, design)
 
-            # Set the fault description of each fault bit associated with the current tile to the
-            # message generated for its routing mux
+            # Set corresponding fault descriptions & affected pips of each of the tile's fault bits
             for tile_fbit in tile_errors:
                 fault_bits[tile_fbit].fault = tile_errors[tile_fbit]['fault_desc']
                 fault_bits[tile_fbit].affected_pips = tile_errors[tile_fbit]['affected_pips']
@@ -174,6 +176,7 @@ def set_fault_bit_values(bit:FaultBit, tile_addr:list, tile_imgs:dict, design_bi
             Returns: Updated fault bit object
     '''
 
+    bit.affected_rsrcs = []
     bit.tile, bit.addr, _ = tile_addr
     bit.resource, bit.function = associate_bit(tile_imgs, bit.tile[0:bit.tile.find('_X')], bit.addr)
 
@@ -183,7 +186,6 @@ def set_fault_bit_values(bit:FaultBit, tile_addr:list, tile_imgs:dict, design_bi
     else:
         bit.type = '0->1'
 
-    bit.affected_rsrcs = []
     # Separate evaluation of fault values for bits from INT tiles and bits from other tiles
     if 'INT_L' in bit.tile or 'INT_R' in bit.tile:
         mux_name = bit.resource.split(' ')[0]
@@ -220,8 +222,7 @@ def associate_bit(tiles:dict, tile_name:str, addr:str):
     if 'INT_L' in tile_name or 'INT_R' in tile_name:
         # Check each routing mux in the tile for the given bit
         for mux in tiles[tile_name].resources:
-            # Check if the bit is in the row bits or column bits for the routing mux
-            # and set information accordingly
+            # Identify if the bit is in the row bits or column bits for the routing mux
             if addr in tiles[tile_name].resources[mux].row_bits:
                 rsrc = f'{mux} {tiles[tile_name].resources[mux].mux_type} Routing Mux'
                 fctn = 'Row Bit'
@@ -236,7 +237,7 @@ def associate_bit(tiles:dict, tile_name:str, addr:str):
         for curr_rsrc, rsrc_bits in tiles[tile_name].resources.items():
             # Search for the bit in the config bits of the current resource
             for curr_bit in rsrc_bits:
-                # Check if the bit matches the given bit and set the information accordingly
+                # Check if the bit matches the given bit
                 if curr_bit[0] == '!' and curr_bit[1:] == addr:
                     rsrc_elements = curr_rsrc.split('.')
                     rsrc = '.'.join(rsrc_elements[:-1])
@@ -259,11 +260,14 @@ def get_bit_cell(tile:str, resource:str, design:DesignQuery):
     '''
 
     cell = 'NA'
+
+    # Query design for cells in the tile it isn't already loaded
     if tile not in design.cells:
         design.query_cells(tile)
 
     # Find the cell if it is in a tile used in the design
     if tile in design.cells:
+        sites = []
         rsrc_elements = resource.split('.')
         try:
             rsrc_root, rsrc_offset = rsrc_elements[0].split('_')
@@ -275,18 +279,15 @@ def get_bit_cell(tile:str, resource:str, design:DesignQuery):
         if 'SLICE' in rsrc_root:
             rsrc_root = 'SLICE'
 
-        rel_sites = []
         # Add all sites matching the root to a list
-        for site in design.cells[tile]:
-            if rsrc_root in site:
-                rel_sites.append(site)
+        [sites.append(site) for site in design.cells[tile] if rsrc_root in site]
 
         # Check for a matching cell if any related sites are found
-        if rel_sites:
+        if sites:
             # Check for any cells matching the tile's relative offset
             if 'X1' in rsrc_offset:
                 # Check each related site to see if it contains the sought resource
-                for site in rel_sites:
+                for site in sites:
                     site_x = int(site[site.find('X') + 1:site.find('Y')])
                     # Check that the site's offset is correct
                     if (site_x % 2) > 0:
@@ -307,7 +308,7 @@ def get_bit_cell(tile:str, resource:str, design:DesignQuery):
 
             elif 'X0' in rsrc_offset:
                 # Check each related site to see if it contains the sought resource
-                for site in rel_sites:
+                for site in sites:
                     site_x = int(site[site.find('X') + 1:site.find('Y')])
                     # Check that the site's offset is correct
                     if (site_x % 2) == 0:
@@ -327,19 +328,16 @@ def get_bit_cell(tile:str, resource:str, design:DesignQuery):
                         cell = ', '.join(rel_cells)
 
             elif 'Y' in rsrc_offset:
-                try:
-                    tile_y = int(tile[tile.find('Y', tile.find('_X')) + 1:])
-                except ValueError:
-                    print(f'Faulty Resource Root: {rsrc_root}, Offset: {rsrc_offset}, Tile: {tile}')
-                    tile_y = 0
+                tile_y = int(tile[tile.find('Y', tile.find('_X')) + 1:])
 
-                # Set y offset value
-                y_off = 0
+                # Set the site's y offset value
                 if '1' in rsrc_offset:
                     y_off = 1
+                else:
+                    y_off = 0
 
                 # Check each related site for matches for the sought resource
-                for site in rel_sites:
+                for site in sites:
                     # Check the site's BELs if the Y address matches
                     if f'Y{tile_y + y_off}' in site:
                         rel_cells = []
@@ -356,7 +354,7 @@ def get_bit_cell(tile:str, resource:str, design:DesignQuery):
                             elif rsrc_bel == bel:
                                 rel_cells.append(design.cells[tile][site][bel])
                         cell = ', '.join(rel_cells)
-    
+
     # Check that cell either has a name or is empty and return the cooresponding string
     if cell:
         return cell
@@ -396,15 +394,12 @@ def eval_tile_errors(tile:Tile, muxes:set, int_fault_bits:dict, design_bits:list
 
         # Add sources connected post-fault to the short sources if multiple sources found
         if len(fault_cnctd_srcs) > 1:
-            # Add all connected sources after the bit upsets to the list of shorted sources
             short_srcs = fault_cnctd_srcs
 
         # Get the affected pips for each fault bit related to the current mux
         mux_affected_pips = get_affected_pips(tile_fault_bits, mux, open_srcs, short_srcs, tile)
 
         fault_desc = 'Not able to find any errors caused by this fault'
-        opens_msg = ''
-        shorts_msg = ''
 
         # Generate fault message for any opened source found
         if open_srcs:
@@ -447,9 +442,9 @@ def get_affected_pips(tile_fault_bits, mux:str, opened_srcs:set, shorted_srcs:se
     '''
         Retrieves all affected pips in the given routing mux and whether they have been
         activated or deactivated.
-            Arguments: list of fault bits in the tile, the affected routing mux, set of
-                       opened sources, set of closed sources, interconnect tile object
-            Returns: dictionary including each bit and affected pips related to the bit
+            Arguments: List of fault bits in the tile, the affected routing mux, set of
+                       opened sources, set of shorted sources, and the current Tile object
+            Returns: Dict of the affected pips for each fault bit in the tile
     '''
 
     srcs_dict = {'deactivated' : opened_srcs, 'activated' : shorted_srcs}
@@ -509,11 +504,11 @@ def get_connected_srcs(tile:Tile, sink_nd:str, design:DesignQuery):
     '''
 
     connected_srcs = set()
+
     # Iterate through each source node of the current routing mux
     for src_nd in tile.pips[sink_nd]:
-        
-        connected = True
         # Iterate through and check the bit configuration for each config bit
+        connected = True
         for pip_bit in tile.pips[sink_nd][src_nd]:
             # Set connected flag to false if any config bit value does not match configuration
             if pip_bit[0] == '!' and tile.config_bits[pip_bit[1:]] != 0:
@@ -522,16 +517,15 @@ def get_connected_srcs(tile:Tile, sink_nd:str, design:DesignQuery):
             elif pip_bit[0] != '!' and tile.config_bits[pip_bit] != 1:
                 connected = False
                 break
+
         # If connected flag remains true add it to the list of connected sources
         if connected:
             connected_srcs.add(src_nd)
 
     # Check if the sink node actually connects to VCC or GND
     if sink_nd in tile.special_pips:
-
         # Iterate through each source node of the current sink node in the special pips dictionary
         for src_nd in tile.special_pips[sink_nd]:
-
             # If the pip is marked as "default", make sure all config bits for the mux are off
             if tile.special_pips[sink_nd][src_nd] == 'default':
                 # Gather related bits to the mux in a set and make sure all bits are off
@@ -656,8 +650,7 @@ def trace_node_connections(tile_name:str, node:str, fault_bits:dict, design_bits
 
     connected_nodes = []
 
-    # Determine if given node is a sink or src in a tile connection and get the nodes
-    # connected to it accordingly
+    # Determine if the node is a sink or src in a tile connection and get its connected nodes
     if node in tile.cnxs:
         connected_nodes.extend(tile.cnxs[node])
     else:
@@ -680,8 +673,7 @@ def trace_node_connections(tile_name:str, node:str, fault_bits:dict, design_bits
     for connected_node in connected_nodes:
         found_net = design.get_net(tile_name, connected_node)
 
-        # return the associated net if there is one. If not rerun trace on each
-        # wire connection to an INT tile
+        # Add the net if found, or rerun the trace on INT connections to the current node
         if found_net != 'NA':
             found_nets.add(found_net)
         else:
@@ -721,7 +713,6 @@ def bit_tile_addr(bitstream_addr:list, tilegrid:dict, tile_imgs:dict):
 
     # Iterate through the tiles from the tilegrid to find which ones can potentially have the bit
     for curr_tile, info in tilegrid.items():
-
         # Check each dataset for the current tile to see if the base address can match
         for i, baseaddr in enumerate(info['baseaddr']):
             # Check if the bit frame address is in the range for the current tile

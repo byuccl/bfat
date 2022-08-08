@@ -38,6 +38,7 @@
         - output file (.txt) that reports the location and cause of any determinable fault bits
 '''
 
+from distutils.debug import DEBUG
 import time
 import json
 from io import TextIOWrapper
@@ -279,7 +280,6 @@ def print_fault_report(outfile:str, fault_report:dict):
                 # Calculate and print group stats, and update total stats
                 group_stats = get_bit_group_stats(group_bits, True, out_f)
                 statistics.update(group_stats.stats)
-                # print_bit_group_stats(out_f, group_stats)
 
     return statistics
 
