@@ -176,9 +176,8 @@ def set_fault_bit_values(bit:FaultBit, tile_addr:list, tile_imgs:dict, design_bi
             Returns: Updated fault bit object
     '''
 
-    bit.affected_rsrcs = []
-    bit.tile, bit.addr, _ = tile_addr
-    bit.resource, bit.function = associate_bit(tile_imgs, bit.tile[0:bit.tile.find('_X')], bit.addr)
+    bit.tile, bit.addr, bus_val = tile_addr
+    bit.resource, bit.function = associate_bit(tile_imgs, bit.tile[0:bit.tile.find('_X')], bit.addr, bus_val)
 
     # Set the fault change depending on if the bit is included in the design bits
     if bit.bit in design_bits:
@@ -207,11 +206,11 @@ def set_fault_bit_values(bit:FaultBit, tile_addr:list, tile_imgs:dict, design_bi
     
     return bit
 
-def associate_bit(tiles:dict, tile_name:str, addr:str):
+def associate_bit(tiles:dict, tile_name:str, addr:str, bus_val:int):
     '''
         Associates the given bit with its tile, resources, and function if available.
-            Arguments: Dict of tiles in the design and strings of the bit's tile
-                       and the bit's address in the tile
+            Arguments: Dict of tiles in the design, string of the bit's tile, the
+                       bit's address in the tile, and int corresponding to the bit's bus
             Returns: Strings of the bit's resource and its function within that resource
     '''
 
@@ -232,6 +231,17 @@ def associate_bit(tiles:dict, tile_name:str, addr:str):
                 fctn = 'Column Bit'
                 break
 
+    # Separate association of BRAM initialization bits and other bits
+    elif 'BRAM' in tile_name and bus_val == 0:
+        # Check if the bit matches the intialization bit of a BRAM resource
+        for curr_rsrc, rsrc_bit in tiles[tile_name].init_resources.items():
+            # If the bit matches, get the resource an function
+            if rsrc_bit == addr:
+                rsrc_elements = curr_rsrc.split('.')
+                rsrc = '.'.join(rsrc_elements[:-1])
+                fctn = rsrc_elements[-1]
+                break
+            
     else:
         # Search for the bit in each resource for the given tile
         for curr_rsrc, rsrc_bits in tiles[tile_name].resources.items():
@@ -731,9 +741,14 @@ def bit_tile_addr(bitstream_addr:list, tilegrid:dict, tile_imgs:dict):
             addr = '{:02}_{:02}'.format(frame_addr, bit_addr)
             ttp_name = bit_tile[:bit_tile.find('_X')]
 
-            # Check the tile archetype's config bits for the bit
-            if(addr in tile_imgs[ttp_name].config_bits):
+            # Check if this is a BRAM initialization bit
+            if 'BRAM' in ttp_name and i == 0 and addr in tile_imgs[ttp_name].init_bits:
                 return [bit_tile, addr, i]
+
+            # Check the tile archetype's config bits for the bit
+            elif (addr in tile_imgs[ttp_name].config_bits):
+                return [bit_tile, addr, i]
+
         return []
     return []
 
