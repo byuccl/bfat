@@ -10,7 +10,6 @@ BFAT consists of the following scripts:
 
 - `bfat.py`: The main script that is run on a design and creates a .txt file to report the information found.
 - `bitread.py` : python tool used to convert bitstream to ascii representation of high bits in bitstream and identify the part used to implement the provided design. Can also be run by itself to convert a bitstream to a .bits file containing the ascii representation of the high bits in the bitstream.
-- `find_fault_bits.py`: python tool that a user can use on their own design to generate a sample fault bit list which can then be run through BFAT (see `docs/fault_report.md` for information on how to run)
 
 Scripts included from the local library:
 
@@ -19,6 +18,11 @@ Scripts included from the local library:
 - `file_processing.py`: Deals with all external file reading and parsing.
 - `statistics.py`: Reads the report data for the design and adds a footer at the end of the report file to report some statistics of the design and faults found.
 - `tile.py`: Creates the classes to store the information on the tiles and routing muxes for the given FPGA design.
+
+Utility scripts to generate fault bit lists for user designs (see `docs/sample_bit_scripts.md` for more info):
+- `find_fault_bits.py`: python tool that a user can use on their own design to generate a sample fault bit list
+- `ll_sample_bits.py`: python tool that a user can run on a generated logic location (.ll) file to generate a sample fault bit list
+- `essential_bits.py`: python tool that a user can run on a generated essential bits (.ebd) file to generate a sample fault bit list
 
 BFAT requires the use of a version of Vivado to read dcp files in order to retrieve information about the design being analyzed.
 
