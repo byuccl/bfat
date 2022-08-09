@@ -2,19 +2,28 @@
     essential_bits.py
     BYU Configurable Computing Lab (CCL): BFAT project, 2021-2022
 
-    Parses a 
+    Parses an essential bits file and selects the specified number of bits
+    to include in a sample fault bit list for BFAT
 
     Arguments:
-        - 
+        - Essential bits file (.ebd) generated from Vivado
+        - Number of bits from the file to include in the fault bits list
 
     Returns:
         - output file (.json) of the generated fault bit list
 '''
 
-from pickle import FRAME
-from bitread import get_frame_list
 import json
 import random
+import os
+import sys
+
+# Add parent directory (bfat) to the path so bitread function can be imported
+p = os.path.abspath('..')
+if p not in sys.path:
+    sys.path.append(p)
+
+from bitread import get_frame_list
 
 
 def parse_ebd_file(eb_file:str):
@@ -96,9 +105,6 @@ def parse_ebd_file(eb_file:str):
     return essential_bits
 
 
-
-
-# TODO: Remove references to "ll"
 def write_bit_list(essential_bits:list, num_bits:int, ebd_file:str):
     '''
         Writes a file containing the specified number of bits from the .ebd file
@@ -143,9 +149,7 @@ def main():
     essential_bits = parse_ebd_file(ARGS.ebd_file)
 
     # Write the specified number of bits to a .json file
-    write_bit_list(essential_bits, ARGS.num_bits, ARGS.ebd_file)
-
-    
+    write_bit_list(essential_bits, ARGS.num_bits, ARGS.ebd_file)  
 
 
 if __name__ == '__main__':
