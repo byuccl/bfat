@@ -25,8 +25,6 @@
 '''
 
 import copy
-from gettext import find
-from readline import set_completer
 from lib.tile import Tile
 from lib.design_query import DesignQuery
 
@@ -63,8 +61,8 @@ class FaultBit:
         self.function = 'NA'
         self.type = 'NA'
         self.fault = 'fault evaluation not yet supported for this bit'
-        self.affected_rsrcs = ['No affected resources found']
-        self.affected_pips = ['No affected pips found']
+        self.affected_rsrcs = ['NA']
+        self.affected_pips = ['NA']
 
 ##################################################
 #       Functions for Defining Fault Bits        #
@@ -163,9 +161,8 @@ def set_fault_bit_values(bit:FaultBit, tile_addr:list, tile_imgs:dict, design_bi
             Returns: Updated fault bit object
     '''
 
-    bit.affected_rsrcs = []
-    bit.tile, bit.addr, _ = tile_addr
-    bit.resource, bit.function = associate_bit(tile_imgs, bit.tile[0:bit.tile.find('_X')], bit.addr)
+    bit.tile, bit.addr, bus_val = tile_addr
+    bit.resource, bit.function = associate_bit(tile_imgs, bit.tile[0:bit.tile.find('_X')], bit.addr, bus_val)
 
     # Set the fault change depending on if the bit is included in the design bits
     if bit.bit in design_bits:
@@ -181,12 +178,12 @@ def set_fault_bit_values(bit:FaultBit, tile_addr:list, tile_imgs:dict, design_bi
 
         # Find the resources affected by the bit's net if it has one
         if net and net != 'NA':
-            bit.affected_rsrcs.extend(design.get_affected_rsrcs(net, bit.tile, mux_name))
+            bit.affected_rsrcs = design.get_affected_rsrcs(net, bit.tile, mux_name)
         else:
-            bit.affected_rsrcs.append('No affected resources found')
+            bit.affected_rsrcs = ['No affected resources found']
     else:
         bit.design_name = get_bit_cell(bit.tile, bit.resource, design)
-        bit.affected_rsrcs.append(bit.design_name)
+        bit.affected_rsrcs = [bit.design_name]
 
     # Give default value for affected resources if no specific resources are found
     if not bit.affected_rsrcs or (len(bit.affected_rsrcs) <= 1 and 'NA' in bit.affected_rsrcs):
@@ -194,11 +191,11 @@ def set_fault_bit_values(bit:FaultBit, tile_addr:list, tile_imgs:dict, design_bi
     
     return bit
 
-def associate_bit(tiles:dict, tile_name:str, addr:str):
+def associate_bit(tiles:dict, tile_name:str, addr:str, bus_val:int):
     '''
         Associates the given bit with its tile, resources, and function if available.
-            Arguments: Dict of tiles in the design and strings of the bit's tile
-                       and the bit's address in the tile
+            Arguments: Dict of tiles in the design, string of the bit's tile, the
+                       bit's address in the tile, and int corresponding to the bit's bus
             Returns: Strings of the bit's resource and its function within that resource
     '''
 
@@ -219,6 +216,17 @@ def associate_bit(tiles:dict, tile_name:str, addr:str):
                 fctn = 'Column Bit'
                 break
 
+    # Separate association of BRAM initialization bits and other bits
+    elif 'BRAM' in tile_name and bus_val == 0:
+        # Check if the bit matches the intialization bit of a BRAM resource
+        for curr_rsrc, rsrc_bit in tiles[tile_name].init_resources.items():
+            # If the bit matches, get the resource an function
+            if rsrc_bit == addr:
+                rsrc_elements = curr_rsrc.split('.')
+                rsrc = '.'.join(rsrc_elements[:-1])
+                fctn = rsrc_elements[-1]
+                break
+            
     else:
         # Search for the bit in each resource for the given tile
         for curr_rsrc, rsrc_bits in tiles[tile_name].resources.items():
@@ -431,7 +439,7 @@ def get_affected_pips(tile_fault_bits, mux:str, opened_srcs:set, shorted_srcs:se
                     # If current bit is row or column bit for mux, this is an affected pip
                     if is_row_bit or is_col_bit:
                         # Add pip to the dictionary for the bit if a pip is found
-                        if 'No affected pips found' in affected_pips[f_bit.bit]:
+                        if 'NA' in affected_pips[f_bit.bit]:
                             affected_pips[f_bit.bit] = [f'{src}{separator}{mux} ({src_type})']
                         else:
                             affected_pips[f_bit.bit].append(f'{src}{separator}{mux} ({src_type})')
@@ -449,7 +457,7 @@ def get_affected_pips(tile_fault_bits, mux:str, opened_srcs:set, shorted_srcs:se
                             separator = '<<->>'
                         
                         # Add pip to the dictionary for the bit if a pip is found
-                        if 'No affected pips found' in affected_pips[f_bit.bit]:
+                        if 'NA' in affected_pips[f_bit.bit]:
                             affected_pips[f_bit.bit] = [f'{src}{separator}{mux} ({src_type})']
                         else:
                             affected_pips[f_bit.bit].append(f'{src}{separator}{mux} ({src_type})')
@@ -591,8 +599,8 @@ def trace_node_connections(tile_name:str, node:str, fault_bits:dict, design_bits
     try:
         tile = tile_collection[tile_name]
     except KeyError:
-        type = tile_name[:tile_name.find('_X')]
-        tile = Tile(tile_name, type, design.part)
+        tile_type = tile_name[:tile_name.find('_X')]
+        tile = Tile(tile_name, tile_type, design.part)
 
         # Update tile config bits
         [tile.change_bit(bit, 1) for bit in tile.config_bits if bit_bitstream_addr([tile_name, bit, 0], tilegrid) in design_bits]
@@ -687,8 +695,12 @@ def bit_tile_addr(bitstream_addr:list, tilegrid:dict, tile_imgs:dict):
             addr = '{:02}_{:02}'.format(frame_addr, bit_addr)
             ttp_name = bit_tile[:bit_tile.find('_X')]
 
+            # Check if this is a BRAM initialization bit
+            if 'BRAM' in ttp_name and i == 0 and addr in tile_imgs[ttp_name].init_bits:
+                return [bit_tile, addr, i]
+
             # Check the tile archetype's config bits for the bit
-            if(addr in tile_imgs[ttp_name].config_bits):
+            elif (addr in tile_imgs[ttp_name].config_bits):
                 return [bit_tile, addr, i]
     return []
 

@@ -67,6 +67,12 @@ class Tile:
             self.populate_tile(part)
             self.resources.update({sink : RTMux(sink, self.pips[sink]) for sink in self.pips})
 
+        # BRAM-specific variables (BRAM initialization bits)
+        if self.type in ('BRAM_L', 'BRAM_R'):
+            self.init_resources = {}    # {resource : bit_config}
+            self.init_bits = {}         # {bit_addr : bit_value}
+            self.populate_tile(part)
+
         # Generic Population
         else:
             self.populate_tile(part)
@@ -269,11 +275,43 @@ class Tile:
 
                         self.resources[rsrc] = bits
         
+
+        # Add BRAM initialization bit addresses if the tile is a BRAM
+        if self.type in ('BRAM_L', 'BRAM_R'):
+            segbits_BRAM_path = f'{XRAY_DB}/{arch}/segbits_{self.type.lower()}.block_ram.db'
+
+            # Make sure that the segbits file for this tile type exists
+            if exists(segbits_BRAM_path):
+                # Open the corresponding segbits_*_block_ram.db file to read from
+                with open(segbits_BRAM_path) as s_b_f:
+                    # Iterate through each line and get the necessary information from it
+                    for line in s_b_f:
+                        db_ln = line.strip().split(' ')
+                        header = db_ln[0].split('.')
+                        init_bit = db_ln[1]
+
+                        # Add init bit with default value of 0 to the tile's list of config bits
+                        if init_bit not in self.config_bits:
+                            self.init_bits[init_bit] = 0
+
+                        # Map initialization bit to its resource in the resources dictionary
+                        rsrc = ''
+                        first = True
+                        # Get the name of the resource
+                        for h_pt in header[1:]:
+                            if not first:
+                                rsrc += '.'
+                            rsrc += h_pt
+                            first = False
+
+                        self.init_resources[rsrc] = init_bit
+
+
         # Add default/always active pips from ppips file if the tile is an interconnect
         if self.type in ('INT_L', 'INT_R'):
             ppips_path = f'{XRAY_DB}/{arch}/ppips_{self.type.lower()}.db'
 
-            # Make sure that the segbits file for this tile type exists
+            # Make sure that the ppips file for this tile type exists
             if exists(ppips_path):
                 # Open the corresponding ppips*.db file to read from 
                 with open(ppips_path) as ppips_f:

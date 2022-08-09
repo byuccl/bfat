@@ -287,10 +287,10 @@ def choose_bits_in_rules(tile_name:str, active_pip_rule:list, inactive_pip_rule:
         if bit[0] == '!':
             # Convert from 2-number tile address to 3-number bitstream address
             tile_bit_addr = [tile_name, bit[1:], 0]
-            bitstream_addr = bit_bitstream_addr(tile_bit_addr, tilegrid_info)[4:]
+            bitstream_addr = bit_bitstream_addr(tile_bit_addr, tilegrid_info)
 
             # If the bit is high in the bitstream, add it to fault bits list
-            if f'bit_{bitstream_addr}' in design_bits:
+            if bitstream_addr in design_bits:
                 bit_group.append(bitstream_addr.replace('_', ' '))
         else:
             # Convert from 2-number tile address to 3-number bitstream address
