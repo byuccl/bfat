@@ -25,6 +25,8 @@
 '''
 
 import copy
+from gettext import find
+from readline import set_completer
 from lib.tile import Tile
 from lib.design_query import DesignQuery
 
@@ -123,31 +125,16 @@ def def_fault_bits(bit_groups:dict, tilegrid:dict, tile_imgs:dict, design_bits:l
             for f_bit in int_tiles[tile]:
                 affected_muxes.add(f_bit.resource.split(' ')[0])
 
-            # Set each config bit in each routing mux to its original value in the design
+            # Set config bits in each routing mux to their values from the design
             for mux in affected_muxes:
-                # Set each config bit in each PIP in the current routing mux to its original value
-                for mux_source in tile_obj.pips[mux]:
-                    # Set each config bit in the PIP to its original value
-                    for pip_bit in tile_obj.pips[mux][mux_source]:
-                        # Get PIP config bit name independent of required value
-                        if pip_bit[0] == '!':
-                            cur_pip_bit = pip_bit[1:]
-                        else:
-                            cur_pip_bit = pip_bit
-
-                        bitstream_addr = bit_bitstream_addr([tile, cur_pip_bit, 0], tilegrid)
-
-                        # Set the current PIP bit's value to be 1 if it is in the design bits
-                        if bitstream_addr in design_bits:
-                            tile_obj.change_bit(cur_pip_bit, 1)
+                tile_obj = set_mux_config(tile_obj, mux, tilegrid, design_bits)
 
             # Evaluate fault errors in current tile
-            tile_errors = eval_tile_errors(tile_obj, affected_muxes, int_tiles, design_bits, tilegrid, design)
+            tile_report = eval_INT_tile(tile_obj, affected_muxes, int_tiles, design_bits, tilegrid, design)
 
             # Set corresponding fault descriptions & affected pips of each of the tile's fault bits
-            for tile_fbit in tile_errors:
-                fault_bits[tile_fbit].fault = tile_errors[tile_fbit]['fault_desc']
-                fault_bits[tile_fbit].affected_pips = tile_errors[tile_fbit]['affected_pips']
+            for tile_fbit in tile_report:
+                fault_bits[tile_fbit].fault, fault_bits[tile_fbit].affected_pips = tile_report[tile_fbit]
 
             del tile_obj
 
@@ -235,19 +222,12 @@ def associate_bit(tiles:dict, tile_name:str, addr:str):
     else:
         # Search for the bit in each resource for the given tile
         for curr_rsrc, rsrc_bits in tiles[tile_name].resources.items():
-            # Search for the bit in the config bits of the current resource
-            for curr_bit in rsrc_bits:
-                # Check if the bit matches the given bit
-                if curr_bit[0] == '!' and curr_bit[1:] == addr:
-                    rsrc_elements = curr_rsrc.split('.')
-                    rsrc = '.'.join(rsrc_elements[:-1])
-                    fctn = rsrc_elements[-1]
-                    break
-                elif curr_bit[0] != '!' and curr_bit == addr:
-                    rsrc_elements = curr_rsrc.split('.')
-                    rsrc = '.'.join(rsrc_elements[:-1])
-                    fctn = rsrc_elements[-1]
-                    break
+            # Set rsrc and fctn if bit address is found in the resource bits
+            if any([bit.replace('!', '') == addr for bit in rsrc_bits]):
+                rsrc_elements = curr_rsrc.split('.')
+                rsrc = '.'.join(rsrc_elements[:-1])
+                fctn = rsrc_elements[-1]
+                break
 
     return rsrc, fctn
 
@@ -259,16 +239,15 @@ def get_bit_cell(tile:str, resource:str, design:DesignQuery):
             Returns: String of the cell associated with the given bit's tile and resource
     '''
 
-    cell = 'NA'
-
     # Query design for cells in the tile it isn't already loaded
     if tile not in design.cells:
         design.query_cells(tile)
 
     # Find the cell if it is in a tile used in the design
     if tile in design.cells:
-        sites = []
         rsrc_elements = resource.split('.')
+
+        # Separate and identify the resource's root and offset if possible
         try:
             rsrc_root, rsrc_offset = rsrc_elements[0].split('_')
         except ValueError:
@@ -280,88 +259,80 @@ def get_bit_cell(tile:str, resource:str, design:DesignQuery):
             rsrc_root = 'SLICE'
 
         # Add all sites matching the root to a list
-        [sites.append(site) for site in design.cells[tile] if rsrc_root in site]
+        sites = [site for site in design.cells[tile] if rsrc_root in site]
 
         # Check for a matching cell if any related sites are found
         if sites:
-            # Check for any cells matching the tile's relative offset
-            if 'X1' in rsrc_offset:
-                # Check each related site to see if it contains the sought resource
-                for site in sites:
-                    site_x = int(site[site.find('X') + 1:site.find('Y')])
-                    # Check that the site's offset is correct
-                    if (site_x % 2) > 0:
-                        rel_cells = []
-                        # Check each bel in the current site to see if it matches the resource
-                        for bel in design.cells[tile][site]:
-                            # Edit BEL name for LUT resources
-                            lut = 'NOT A LUT'
-                            if 'LUT' in bel:
-                                lut = f'{bel[0]}{bel[2:]}'
-
-                                # If the BEL matches add the related cell to a list
-                                if rsrc_bel == lut:
-                                    rel_cells.append(design.cells[tile][site][bel])
-                            elif rsrc_bel == bel:
-                                rel_cells.append(design.cells[tile][site][bel])
-                        cell = ', '.join(rel_cells)
-
-            elif 'X0' in rsrc_offset:
-                # Check each related site to see if it contains the sought resource
-                for site in sites:
-                    site_x = int(site[site.find('X') + 1:site.find('Y')])
-                    # Check that the site's offset is correct
-                    if (site_x % 2) == 0:
-                        rel_cells = []
-                        # Check each bel in the current site to see if it matches the resource
-                        for bel in design.cells[tile][site]:
-                            # Edit BEL name for LUT resources
-                            lut = 'NOT A LUT'
-                            if 'LUT' in bel:
-                                lut = f'{bel[0]}{bel[2:]}'
-
-                                # If the BEL matches add the related cell to a list
-                                if rsrc_bel == lut:
-                                    rel_cells.append(design.cells[tile][site][bel])
-                            elif rsrc_bel == bel:
-                                rel_cells.append(design.cells[tile][site][bel])
-                        cell = ', '.join(rel_cells)
-
-            elif 'Y' in rsrc_offset:
+            # Identify related cells depending on the resource's X or Y offset
+            if 'Y' in rsrc_offset:
+                # Get the site's y index
                 tile_y = int(tile[tile.find('Y', tile.find('_X')) + 1:])
 
-                # Set the site's y offset value
+                # Set the site's y offset
                 if '1' in rsrc_offset:
                     y_off = 1
                 else:
                     y_off = 0
 
-                # Check each related site for matches for the sought resource
+                # Check if any site matches the y address and return its related cells
                 for site in sites:
-                    # Check the site's BELs if the Y address matches
+                    # Return related cells of site if the y address matches
                     if f'Y{tile_y + y_off}' in site:
-                        rel_cells = []
-                        # Check each bel in the current site to see if it matches the resource
-                        for bel in design.cells[tile][site]:
-                            # Edit BEL name for LUT resources
-                            lut = 'NOT A LUT'
-                            if 'LUT' in bel:
-                                lut = f'{bel[0]}{bel[2:]}'
+                        return get_site_related_cells(tile, site, rsrc_bel, design)
+            
+            else:
+                # Check if any site matches the local x offset and return its related cells
+                for site in sites:
+                    # Get the site's x index and offset
+                    x_off = int(site[site.find('X') + 1:site.find('Y')]) % 2
 
-                                # If the BEL matches add the related cell to a list
-                                if rsrc_bel == lut:
-                                    rel_cells.append(design.cells[tile][site][bel])
-                            elif rsrc_bel == bel:
-                                rel_cells.append(design.cells[tile][site][bel])
-                        cell = ', '.join(rel_cells)
+                    # Return related cells of site if its x offset matches its local site address
+                    if 'X0' in rsrc_offset and x_off == 0 or 'X1' in rsrc_offset and x_off > 0:
+                        return get_site_related_cells(tile, site, rsrc_bel, design)
+    return 'NA'
 
-    # Check that cell either has a name or is empty and return the cooresponding string
-    if cell:
-        return cell
+def get_site_related_cells(tile:str, site:str, bel:str, design:DesignQuery):
+    '''
+        Finds the related cell(s) from the design in the provided site and bel
+            Arguments: Strings if the tile, site, and bel to get the cell for
+                       and a query for the design's data
+            Returns: String of the related cell(s)
+    '''
+
+    rel_cells = [c for b, c in design.cells[tile][site].items() if bel in [b, f'{b[0]}{b[2:]}']]
+
+    # Return cell(s) found or 'NA' if none found
+    if rel_cells:
+        return ', '.join(rel_cells)
     else:
         return 'NA'
 
-def eval_tile_errors(tile:Tile, muxes:set, int_fault_bits:dict, design_bits:list, tilegrid:dict, design:DesignQuery):
+def set_mux_config(tile:Tile, mux:str, tilegrid:dict, design_bits:list):
+    '''
+        Sets the values of the mux's configuration bits to the values they are given
+        in the provided design
+            Arguments: Tile object to update, string of the mux to update, dict of the
+                       part's tilegrid, and a list of the high bits in the design
+            Returns: Updated Tile object
+    '''
+
+    # Set each config bit in each PIP in the current routing mux to its original value
+    for src in tile.pips[mux]:
+        # Get bit tile addresses used in the current pip
+        pip_bits = [bit.replace('!', '') for bit in tile.pips[mux][src]]
+
+        # Set each config bit in the PIP to its original value
+        for pip_bit in pip_bits:
+            # Convert the bit tile address to its bitstream address
+            bitstream_addr = bit_bitstream_addr([tile.name, pip_bit, 0], tilegrid)
+
+            # Set the current PIP bit's value to be 1 if it is in the design bits
+            if bitstream_addr in design_bits:
+                tile.change_bit(pip_bit, 1)
+
+    return tile
+
+def eval_INT_tile(tile:Tile, muxes:set, int_fault_bits:dict, design_bits:list, tilegrid:dict, design:DesignQuery):
     '''
         Evaluates a given tile associated with fault bits, determines any fault errors and
         the fault bits that caused them, and finds affected pips for the fault
@@ -399,32 +370,23 @@ def eval_tile_errors(tile:Tile, muxes:set, int_fault_bits:dict, design_bits:list
         # Get the affected pips for each fault bit related to the current mux
         mux_affected_pips = get_affected_pips(tile_fault_bits, mux, open_srcs, short_srcs, tile)
 
-        fault_desc = 'Not able to find any errors caused by this fault'
-
-        # Generate fault message for any opened source found
-        if open_srcs:
+        # Generate fault message using the shorts and opens sources
+        if open_srcs and short_srcs:
             opens_list = ', '.join(sorted(open_srcs))
-            opens_msg =  f'Opens created for net(s): {opens_list}'
-        else:
-            opens_msg = ''
-
-        # Generate fault message for any shorted sources found
-        if short_srcs:
             shorts_list = ', '.join(sorted(short_srcs))
-            shorts_msg = f'Shorts formed between net(s): {shorts_list}'
+            fault_desc = f'Opens created for net(s): {opens_list}; Shorts formed between net(s): {shorts_list}'
+        elif open_srcs:
+            opens_list = ', '.join(sorted(open_srcs))
+            fault_desc = f'Opens created for net(s): {opens_list}'
+        elif short_srcs:
+            shorts_list = ', '.join(sorted(short_srcs))
+            fault_desc = f'Shorts formed between net(s): {shorts_list}'
         else:
-            shorts_msg = ''
-
-        # Create fault message from open message and/or short message and replace node names with
-        # their associated nets if they exist
-        if opens_msg and not shorts_msg:
-            fault_desc = sub_nodes_with_nets(open_srcs, tile.name, opens_msg, int_fault_bits, design_bits, tilegrid, design)
-        elif shorts_msg and not opens_msg:
-            fault_desc = sub_nodes_with_nets(short_srcs, tile.name, shorts_msg, int_fault_bits, design_bits, tilegrid, design)
-        elif opens_msg and shorts_msg:
-            fault_desc = f'{opens_msg}; {shorts_msg}'
-            fault_desc = sub_nodes_with_nets(open_srcs, tile.name, fault_desc, int_fault_bits, design_bits, tilegrid, design)
-            fault_desc = sub_nodes_with_nets(short_srcs, tile.name, fault_desc, int_fault_bits, design_bits, tilegrid, design)
+            fault_desc = ''
+        
+        # Substitute pin/node names with corresponding net names or set to default
+        if fault_desc:
+            fault_desc = sub_pins_with_nets(fault_desc, tile.name, int_fault_bits, tilegrid, design_bits, design)
         else:
             fault_desc = 'Not able to find any errors caused by this fault'
 
@@ -433,10 +395,9 @@ def eval_tile_errors(tile:Tile, muxes:set, int_fault_bits:dict, design_bits:list
             # Check if each fault bit is associated with the current routing mux before
             # applying the fault message
             if mux in bit.resource:
-                tile_report[bit.bit] = {'fault_desc' : fault_desc, 'affected_pips' : mux_affected_pips[bit.bit]}
+                tile_report[bit.bit] = [fault_desc, mux_affected_pips[bit.bit]]
 
     return tile_report
-
 
 def get_affected_pips(tile_fault_bits, mux:str, opened_srcs:set, shorted_srcs:set, gen_tile:Tile):
     '''
@@ -454,6 +415,7 @@ def get_affected_pips(tile_fault_bits, mux:str, opened_srcs:set, shorted_srcs:se
 
     # Iterate through both source types (deactivated and activated)
     for src_type, srcs in srcs_dict.items():
+        # Iterate through the sources in the source type
         for src in srcs:
             # Default seperator between source and sink in a pip
             separator = '->>'
@@ -480,6 +442,7 @@ def get_affected_pips(tile_fault_bits, mux:str, opened_srcs:set, shorted_srcs:se
 
                 # Determine which fault bits are part of the pip rule
                 for f_bit in tile_fault_bits:
+                    # Check that the bit's tile address is in the pip rule
                     if f_bit.addr in pip_bits:
                         # Determine if the pip is standard or bidirectional
                         if src in gen_tile.pips and mux in gen_tile.pips[src]:
@@ -492,7 +455,6 @@ def get_affected_pips(tile_fault_bits, mux:str, opened_srcs:set, shorted_srcs:se
                             affected_pips[f_bit.bit].append(f'{src}{separator}{mux} ({src_type})')
 
     return affected_pips
-
 
 def get_connected_srcs(tile:Tile, sink_nd:str, design:DesignQuery):
     '''
@@ -553,54 +515,52 @@ def get_connected_srcs(tile:Tile, sink_nd:str, design:DesignQuery):
 
     return connected_srcs
 
-def sub_nodes_with_nets(node_list:list, tile:str, msg_str:str, fault_bits:dict, design_bits:list, tilegrid:dict, design:DesignQuery):
+def sub_pins_with_nets(msg:str, tile:str, fault_bits:dict, tilegrid:dict, design_bits:list, design:DesignQuery):
     '''
-        Replace each node in the given list with its corresponding net in the fault message
-            Arguments: List of nodes to be replaced, string of the tile name, the generated fault
-                       message string, list of the design bits, dicts of the fault bits and the
-                       part's tilegrid, and a query for the design's data
-            Returns: Fault message string with node names swapped with cooresponding design net
-                     names or a default placeholder for the node
+        Replace each pin in the given fault message with its corresponding net(s)
+            Arguments: Strings of message to be edited and tile name, dicts of the
+                       fault bits and the part's tilegrid, list of the design bits,
+                       and a query for the design's data
+            Returns: String of edited fault message with net names instead of pin names
     '''
 
-    node_net_assoc = {}
-    unconnected_nodes = []
-    direct_nets = []
+    msg_sections = msg.split('; ')
+    sections = {}
 
-    # Populate association dict and update the dict items and unconnected node list
-    for node in node_list:
-        node_net_assoc[node] = set()
-        assoc_net = design.get_net(tile, node)
+    # Find pins and their corresponding nets for each section of the message
+    for s in msg_sections:
+        head, pins = s.split(': ')
+        sec_nets = set()
+        indirect_pins = set()
 
-        # Add associated net to dict item if exists, if not add node to unconnected node list
-        if assoc_net != 'NA':
-            node_net_assoc[node].add(assoc_net)
-            direct_nets.append(assoc_net)
-        else:
-            unconnected_nodes.append(node)
+        # Get nets for pins from design
+        for p in pins.split(', '):
+            net = design.get_net(tile, p)
 
-    # Trace any unconnected nodes for any nets and update the association dict
-    if unconnected_nodes:
-        # Set the net associated with each unconnected net to the results of a net trace
-        for uc_node in unconnected_nodes:
-            node_net_assoc[uc_node] = find_connected_net(tile, node, fault_bits, design_bits, tilegrid, design)
+            # Add bit to section nets if found and to indirect pins of not
+            if net != 'NA':
+                sec_nets.add(net)
+            else:
+                indirect_pins.add(p)
 
-        # Remove any nets found directly from each unconnected node's set if there are any
-        for uc_node in unconnected_nodes:
-            # Remove any direct nets from the current node's association
-            for d_net in direct_nets:
-                node_net_assoc[uc_node].discard(d_net)
+        # Trace indirect pins for potential connected nets
+        for idp in indirect_pins:
+            conn_nets = find_connected_net(tile, idp, fault_bits, design_bits, tilegrid, design)
+            
+            # Remove any nets already found from the connected nets found
+            rem_nets = {cn for cn in conn_nets if cn in sec_nets}
+            conn_nets.difference_update(rem_nets)
 
-            # Add placeholder if set is empty after removing direct nets
-            if not node_net_assoc[uc_node]:
-                node_net_assoc[uc_node].add(f'Unconnected Node({uc_node})')
+            # Add found nets to section nets or add placeholder for pin if none are found
+            if conn_nets:
+                sec_nets.update(conn_nets)
+            else:
+                sec_nets.add(f'Unconnected Wire({idp})')
 
-    # Replace the association set for each node with a str and replace node in msg_str
-    for node in node_net_assoc:
-        node_net_assoc[node] = ', '.join(node_net_assoc[node])
-        msg_str = msg_str.replace(node, node_net_assoc[node])
-    
-    return msg_str
+        # Create section entry for current message section
+        sections[head] = ', '.join(sorted(sec_nets))
+
+    return '; '.join([f'{h}: {sn}' for h, sn in sections.items()])
 
 def find_connected_net(tile_name:str, node:str, fault_bits:dict, design_bits:list, tilegrid:dict, design:DesignQuery):
     '''
@@ -631,8 +591,8 @@ def trace_node_connections(tile_name:str, node:str, fault_bits:dict, design_bits
     try:
         tile = tile_collection[tile_name]
     except KeyError:
-        tile_type = tile_name[:tile_name.find('_X')]
-        tile = Tile(tile_name, tile_type, design.part)
+        type = tile_name[:tile_name.find('_X')]
+        tile = Tile(tile_name, type, design.part)
 
         # Update tile config bits
         [tile.change_bit(bit, 1) for bit in tile.config_bits if bit_bitstream_addr([tile_name, bit, 0], tilegrid) in design_bits]
@@ -655,14 +615,10 @@ def trace_node_connections(tile_name:str, node:str, fault_bits:dict, design_bits
         connected_nodes.extend(tile.cnxs[node])
     else:
         # Check each source node with connections for the given node
-        for curr_src in tile.cnxs:
-            # If the node is found 
-            if node in tile.cnxs[curr_src]:
-                # Add all other sinks to the list
-                for curr_sink in tile.cnxs[curr_src]:
-                    # Add all sink nodes to the list that aren't the given node
-                    if curr_sink != node:
-                        connected_nodes.append(curr_sink)
+        for src in tile.cnxs:
+            # Add each sink that isn't the original node to the list if the node is a sink
+            if node in tile.cnxs[src]:
+                [connected_nodes.append(sink) for sink in tile.cnxs[src] if sink != node]
 
     # Remove targeted node from list
     if node in connected_nodes:
@@ -678,11 +634,11 @@ def trace_node_connections(tile_name:str, node:str, fault_bits:dict, design_bits
             found_nets.add(found_net)
         else:
             wire_cnxs = design.get_wire_connections(tile_name, connected_node)
-            # Remove all non-INT connections
-            for wire_cnx in wire_cnxs:
-                # Remove the current wire connection if it isn't to an INT tile
-                if 'INT' not in wire_cnx:
-                    wire_cnxs.remove(wire_cnx)
+            non_int_cnxs = set()
+
+            # Save non-INT connections in a separate set and remove each from the original list
+            [non_int_cnxs.add(cnx) for cnx in wire_cnxs if 'INT' not in cnx]
+            [wire_cnxs.remove(nic) for nic in non_int_cnxs]
 
             # Trace the node at the end of each wire connection
             for wire_cnx in wire_cnxs:
@@ -734,7 +690,6 @@ def bit_tile_addr(bitstream_addr:list, tilegrid:dict, tile_imgs:dict):
             # Check the tile archetype's config bits for the bit
             if(addr in tile_imgs[ttp_name].config_bits):
                 return [bit_tile, addr, i]
-        return []
     return []
 
 def bit_bitstream_addr(tile_addr:list, tilegrid:dict):

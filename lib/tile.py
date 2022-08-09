@@ -236,14 +236,9 @@ class Tile:
                     header = db_ln[0].split('.')
                     bits = db_ln[1:]
 
-                    # Iterate through each config bit in line
+                    # Add config bits to tile's dict with default value of 0
                     for cfgb in bits:
-                        # Add config bit with default value of 0 to the tile's list of config bits
-                        if cfgb[0] == '!':
-                            if cfgb[1:] not in self.config_bits:
-                                self.config_bits[cfgb[1:]] = 0
-                        elif cfgb not in self.config_bits:
-                            self.config_bits[cfgb] = 0
+                        self.config_bits[cfgb.replace('!','')] = 0
 
                     # Interconnect tile population
                     if self.type in ('INT_L', 'INT_R'):
@@ -360,12 +355,7 @@ class RTMux:
 
         # Iterate through each src node from tile_type.pips and its cfg_bits
         for src in pips:
-            cfg_bits = []
-            for cfgb in pips[src]:
-                if cfgb[0] == '!':
-                    cfg_bits.append(cfgb[1:])
-                else:
-                    cfg_bits.append(cfgb)
+            cfg_bits = [bit.replace('!', '') for bit in pips[src]]
 
             # Create a counter for each new cfg_bit and increment each recurring one
             for cfgb in cfg_bits:
