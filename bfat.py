@@ -135,7 +135,7 @@ def gen_tcl_cmds(fault_info:list, outfile:TextIOWrapper):
         # Identify all unconnected node placeholders from message
         uc_nets = set()
         for msg_net in msg_nets:
-            if 'Unconnected Node' in msg_net:
+            if 'Unconnected Wire' in msg_net:
                 uc_nets.add(msg_net)
 
         # Remove all unconnected node placeholders from message nets
