@@ -31,6 +31,7 @@
     Optional flags:
         - bits_file [-bf]: Flag to parse in a .bits file instead of a bitstream for the design
         - debug [-d]: Flag for printing debug statements included in code to standard out
+        - rapidwright [-rpd]: Flag to use Rapidwright implementation of design querying
         - out_file [-of]: Path of output file. Default is <design_name>_fault_report.txt
         - json [-j]: File path to an additional json file storing the fault report information
 
@@ -38,7 +39,6 @@
         - output file (.txt) that reports the location and cause of any determinable fault bits
 '''
 
-from distutils.debug import DEBUG
 import time
 import json
 from io import TextIOWrapper
@@ -326,7 +326,11 @@ def main():
     debug_print(f'Design Bits Read In:\t\t{round(time.perf_counter()-t_start, 2)} sec', ARGS.debug)
 
     # Create a design query to get design info from the dcp file
-    design = VivadoQuery(ARGS.dcp_file)
+    if ARGS.rapidwright:
+        from lib.rpd_query import RpdQuery
+        design = RpdQuery(ARGS.dcp_file)
+    else:
+        design = VivadoQuery(ARGS.dcp_file)
     debug_print(f'Design Query Created:\t\t{round(time.perf_counter()-t_start, 2)} sec', ARGS.debug)
 
     # Parse in the corresponding part's tilegrid.json file
@@ -367,12 +371,17 @@ if __name__ == '__main__':
                                                 + 'bits to report the identities and the effects '
                                                 + 'of the flipped values of each fault bit on '
                                                 + 'the design.')
+    # Input Files
     PARSER.add_argument("bitstream", help='Bitstream file of the design to be analyzed')
     PARSER.add_argument('dcp_file', help='Vivado checkpoint file of the implemented design')
     PARSER.add_argument('fault_bits', help='Json file listing bits of interest')
+    # Feature Flags
     PARSER.add_argument('-bf', '--bits_file', action='store_true', default='',
                         help='Specify a .bits text file of all high bits instead of a bitstream')
     PARSER.add_argument('-d', '--debug', action='store_true', help='Flag debug statements')
+    PARSER.add_argument('-rpd', '--rapidwright', action='store_true',
+                        help='Flag to use Rapidwright to read design data')
+    # Optional Output File Paths
     PARSER.add_argument('-of', '--out_file', default='',
                         help='File path where the output is to be written.')
     PARSER.add_argument('-j', '--json', default='',
