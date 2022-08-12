@@ -34,11 +34,12 @@
         - dcp vivado checkpoint file of operational design
 
     Optional flags:
-        -run [-r]: Bitstream, dcp, and fault bits will be run through BFAT
-        -debug [-d] Verbose printing after major function returns for debug purposes
+        - run [-r]: Bitstream, dcp, and fault bits will be run through BFAT
+        - rapidwright [-rpd]: Flag to use Rapidwright implementation of design querying
+        - debug [-d] Verbose printing after major function returns for debug purposes
 
     Returns:
-        -output file (.json) in the working directory that contains the fault bits
+        - output file (.json) in the working directory that contains the fault bits
 '''
 
 from bfat import get_tile_type_name, debug_print
@@ -421,13 +422,17 @@ def find_fault_bits(bitstream:str, dcp:str, run_bfat:bool, debug:bool):
     debug_print(f'Parsed bitstream file:\t\t\t{round(time.perf_counter()-t_start, 2)} sec', debug)
 
     # Create data structure of the design
-    design_query = VivadoQuery(dcp)
+    if ARGS.rapidwright:
+        from lib.rpd_query import RpdQuery
+        design_query = RpdQuery(dcp)
+    else:
+        design_query = VivadoQuery(dcp)
     part_name = design_query.part
     debug_print(f'Created design query:\t\t\t{round(time.perf_counter()-t_start, 2)} sec', debug)
 
     # Get all used INT tiles
     used_INT_tiles = design_query.get_used_INT_tiles()
-    debug_print(f'Retrieved used INT tiles:\t\t\t{round(time.perf_counter()-t_start, 2)} sec', debug)
+    debug_print(f'Retrieved used INT tiles:\t\t{round(time.perf_counter()-t_start, 2)} sec', debug)
 
     # Get the tilegrid information for the part
     tilegrid_info = parse_tilegrid(part_name)
@@ -512,6 +517,8 @@ if __name__ == '__main__':
     PARSER.add_argument('dcp_file', help='Vivado checkpoint of the implemented design')
     PARSER.add_argument('-r', '--run', action='store_true', default='', help='Run the given design '
                         + 'files and generated fault bits through BFAT')
+    PARSER.add_argument('-rpd', '--rapidwright', action='store_true',
+                        help='Flag to use Rapidwright to read design data')
     PARSER.add_argument('-d', '--debug', action='store_true', default='', help='Give timing information')
     ARGS = PARSER.parse_args()
 

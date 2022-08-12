@@ -622,7 +622,7 @@ class VivadoQuery(DesignQuery):
             'getNodeSitePin' : f'puts [get_site_pins -of [get_nodes {arg1}]]\n',
             'getNodeWires' : f'puts [get_wires -of [get_nodes {arg1}]]\n',
             # Wire Commands
-            'getWireConnections' : f'puts [get_nodes -downhill -of_objects [get_nodes -of [get_wires {arg1}/{arg2}]]]\n',
+            'getWireConnections' : f'puts [get_nodes -downhill -of [get_nodes -of [get_wires {arg1}/{arg2}]]]\n',
             'getWireNode' : f'puts [get_nodes -of [get_wires {arg1}]]\n'
         }.get(cmd, '')
         
@@ -814,6 +814,7 @@ class VivadoQuery(DesignQuery):
         '''
 
         tiles = self.run_command('getCLBTiles', used)
+
         return set(tiles)
 
     def get_used_INT_tiles(self):
@@ -823,4 +824,8 @@ class VivadoQuery(DesignQuery):
         '''
 
         tiles = self.run_command('getINTTiles')
-        return set(tiles)
+
+        # Remove INT_INTERFACE tiles from the list and convert to a set
+        tiles = {tile for tile in tiles if 'INTERFACE' not in tile}
+
+        return tiles
