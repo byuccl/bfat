@@ -117,6 +117,7 @@ BFAT utilizes the ProjectXray database in its design analysis and clones the dat
 ## Supported Parts:
 
 ### Artix-7
+- xc7a35t family
 - xc7a50t family
 - xc7a100t family
 - xc7a200t family

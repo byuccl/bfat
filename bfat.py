@@ -112,13 +112,15 @@ def gen_tcl_cmds(fault_info:list, outfile:TextIOWrapper):
     tile, _, _, _, _, fault_msg, aff_rsrcs, aff_pips = fault_info
     tile_type = get_tile_type_name(tile)
 
+    outfile.write('\n\tVivado Tcl Commands:\n')
+
     # Get the nets and pips from the fault bit's fault info and add them to
     # the generated tcl command to select them in Vivado
     if 'INT' in tile and ('Opens' in fault_msg or 'Shorts' in fault_msg):
         
         # Print the tcl command for selecting the affected pips
         reformatted_pips = [f'{tile}/{tile_type}.{pip.split(" ")[0]}' for pip in aff_pips]
-        outfile.write(f'\n\tselect_objects [get_pips {{{" ".join(reformatted_pips)}}}]')
+        outfile.write(f'\t\tselect_objects [get_pips {{{" ".join(reformatted_pips)}}}]\n')
 
         msg_nets = []
 
@@ -149,13 +151,13 @@ def gen_tcl_cmds(fault_info:list, outfile:TextIOWrapper):
             msg_nets_str = msg_nets_str.replace("GLOBAL_LOGIC0", "GND_2")
             msg_nets_str = msg_nets_str.replace("GLOBAL_LOGIC1", "VCC_2")
 
-            outfile.write(f'\n\tselect_objects [get_nets {{{msg_nets_str}}}]')
+            outfile.write(f'\t\tselect_objects [get_nets {{{msg_nets_str}}}]\n')
 
     # Get the cells of the affected resources if there are any and add them
     # to the generated tcl command to select them in Vivado
     if aff_rsrcs and 'NA' not in aff_rsrcs and 'No affected resources found' not in aff_rsrcs:
         aff_rsrcs_str = ' '.join(sorted(aff_rsrcs))
-        outfile.write(f'\n\tselect_objects [get_cells {{{aff_rsrcs_str}}}]\n')
+        outfile.write(f'\t\tselect_objects [get_cells {{{aff_rsrcs_str}}}]\n')
     elif 'INT' in tile and ('Opens' in fault_msg or 'Shorts' in fault_msg):
         outfile.write('\n')
     outfile.write('\n')
