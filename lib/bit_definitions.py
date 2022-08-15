@@ -87,10 +87,15 @@ def def_fault_bits(bit_groups:dict, tilegrid:dict, tile_imgs:dict, design_bits:l
             bit_name = f'bit_{fault_bit[0]}_{fault_bit[1]}_{fault_bit[2]}'
             new_bit = FaultBit(bit_name)
 
+            # Get the tile address and all of the potential tiles based on the bit's frame
+            tile_addr, bit_potential_tiles = bit_tile_addr(fault_bit, tilegrid, tile_imgs)            
+
             # Set the basic fault bit values based on the converted bit address if possible
-            tile_addr = bit_tile_addr(fault_bit, tilegrid, tile_imgs)
             if tile_addr:
                 new_bit = set_fault_bit_values(new_bit, tile_addr, tile_imgs, design_bits, design)
+            # If a tile address could not be found, set bit tile to be all potential tiles found
+            else:
+                new_bit.tile = bit_potential_tiles
 
             # Add any fault bits for INT tiles a dictionary under its tile
             if 'INT_L' in new_bit.tile or 'INT_R' in new_bit.tile:
@@ -667,7 +672,8 @@ def bit_tile_addr(bitstream_addr:list, tilegrid:dict, tile_imgs:dict):
         Converts a bit's bitstream address to its tile and tile address
             Arguments: List of the bitstream address and dicts of the tilegrid and tile images
             Returns: 3-element list with strings of the bit's tile, tile address, and an int of the
-                     tilegrid data index the bit's data is found at in its tile.
+                     tilegrid data index the bit's data is found at in its tile. Also returns the
+                     list of potential bits from the frame address and word offset
     '''
 
     bit_tiles = {}                          # {tile : dataset index}
@@ -685,6 +691,8 @@ def bit_tile_addr(bitstream_addr:list, tilegrid:dict, tile_imgs:dict):
                 if word_offset >= info['offset'][i] and word_offset <= info['offset'][i] + (info['words'][i] - 1):
                     bit_tiles[curr_tile] = i
 
+    bit_tiles_list = list(bit_tiles.keys())
+
     # If any potential tiles are found check if they use the bit
     if bit_tiles:
         # Iterate through the potential tiles and check if they use the bit
@@ -697,12 +705,12 @@ def bit_tile_addr(bitstream_addr:list, tilegrid:dict, tile_imgs:dict):
 
             # Check if this is a BRAM initialization bit
             if 'BRAM' in ttp_name and i == 0 and addr in tile_imgs[ttp_name].init_bits:
-                return [bit_tile, addr, i]
+                return [bit_tile, addr, i], bit_tiles_list
 
             # Check the tile archetype's config bits for the bit
             elif (addr in tile_imgs[ttp_name].config_bits):
-                return [bit_tile, addr, i]
-    return []
+                return [bit_tile, addr, i], bit_tiles_list
+    return [], bit_tiles_list
 
 def bit_bitstream_addr(tile_addr:list, tilegrid:dict):
     '''

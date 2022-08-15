@@ -48,7 +48,7 @@ BFAT utilizes the ProjectXray database in its design analysis and clones the dat
 2. Install Vivado HDL Tools
     > **Note:** We recommend Vivado version 2021.2 or later, as earlier versions are untested and we cannot guarantee that they will work
 
-3. Install Python 3.8+, its cooresponding Virtual Environement (venv) module, and a valid Java JDK
+3. Install Python 3.8+, its corresponding Virtual Environement (venv) module, and a valid Java JDK
     ```
     sudo apt install python<dist> python<dist>-venv default-jdk
     ```

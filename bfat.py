@@ -169,7 +169,7 @@ def classify_fault_bits(group_bits:dict):
                      report and a list of the undefined bits in the fault_report
     '''
 
-    undefined_bits = []
+    undefined_bits = {}
     unsupported_bits = {}
     errorless_bits = {}
     significant_bits = {}
@@ -179,8 +179,8 @@ def classify_fault_bits(group_bits:dict):
         tile, rsrc, fctn, dsgn_rsrc, _, fault_msg, _, _ = bit_info
 
         # Classify fault bit by its significance and add it to its respective collections
-        if tile == 'NA':
-            undefined_bits.append(fault_bit)
+        if isinstance(tile, list):
+            undefined_bits[fault_bit] = tile
         elif tile != 'NA' and 'not yet supported' in fault_msg:
             unsupported_bits[fault_bit] = [tile, rsrc, fctn]
         elif 'Not able to find any errors' in fault_msg or 'No instanced resource' in fault_msg:
@@ -234,9 +234,16 @@ def print_bit_group_section(section_name:str, section_bits, outfile:TextIOWrappe
                 gen_tcl_cmds(bit_info, outfile)
 
         elif section_name == 'Undefined Bits':
-            # Print out each undefined bit
+            # Print out each undefined bit and its potential tiles
             for bit in section_bits:
                 outfile.write(f'{bit}\n')
+                outfile.write('\tPotential Tiles:\n')
+                # Print each potential tile for the undefined bit
+                for tile in section_bits[bit]:
+                    outfile.write(f'\t\t{tile}\n')
+                if section_bits[bit] == []:
+                    outfile.write('\t\tNo potential tiles found')
+
             outfile.write('\n')
         else:
             # Print out each error-less bit and bit information
