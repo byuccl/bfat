@@ -95,7 +95,7 @@ def def_fault_bits(bit_groups:dict, tilegrid:dict, tile_imgs:dict, design_bits:l
                 new_bit = set_fault_bit_values(new_bit, tile_addr, tile_imgs, design_bits, design)
             # If a tile address could not be found, set bit tile to be all potential tiles found
             else:
-                new_bit.tile = bit_potential_tiles
+                new_bit.affected_rsrcs = possible_aff_rsrcs(new_bit, bit_potential_tiles, design)
 
             # Add any fault bits for INT tiles a dictionary under its tile
             if 'INT_L' in new_bit.tile or 'INT_R' in new_bit.tile:
@@ -156,6 +156,37 @@ def def_fault_bits(bit_groups:dict, tilegrid:dict, tile_imgs:dict, design_bits:l
                                               fbit.affected_rsrcs, fbit.affected_pips]
 
     return fault_report
+
+def possible_aff_rsrcs(bit:FaultBit, potential_tiles:list, design:DesignQuery):
+    '''
+        Gets all design resources (cells) in each of the potential tiles for the
+        given undefined bit
+            Arguments: FaultBit object, list of potential tiles for the bit, design
+                       query object
+            Returns: dict with all cells in each potential tile
+    '''
+
+    possible_rsrcs = {}
+
+    # Get all cells in each of the tiles
+    for tile in potential_tiles:
+        possible_rsrcs[tile] = []
+        design.query_cells(tile)
+        
+        # Verify that there are cells in the tile
+        if tile not in design.cells:
+            continue
+
+        # Get all cells in the tile
+        for site_bels in design.cells[tile].values():
+            # Skip site iteration if the site has no bels with a cell
+            if 'None' in site_bels:
+                continue
+            # Get the cell for each of the bels
+            for cell in site_bels.values():
+                possible_rsrcs[tile].append(cell)
+
+    return possible_rsrcs
 
 def set_fault_bit_values(bit:FaultBit, tile_addr:list, tile_imgs:dict, design_bits:list, design:DesignQuery):
     '''
@@ -585,20 +616,24 @@ def find_connected_net(tile_name:str, node:str, fault_bits:dict, design_bits:lis
     '''
 
     tile_collection = {}
+    traced_nodes = set()
     found_nets = trace_node_connections(tile_name, node, fault_bits, design_bits,
-                                        tilegrid, tile_collection, design)
+                                        tilegrid, tile_collection, design, traced_nodes)
 
     return found_nets
 
-def trace_node_connections(tile_name:str, node:str, fault_bits:dict, design_bits:list, tilegrid:dict, tile_collection:dict, design:DesignQuery):
+def trace_node_connections(tile_name:str, node:str, fault_bits:dict, design_bits:list, tilegrid:dict, tile_collection:dict, design:DesignQuery, traced_nodes:set):
     '''
         Recursively traces back through the node connections and board wires to verify if any
         nets are connected to the given node after SBU's are applied to the design.
             Arguments: Strings of the tile and node; list of the design bits; dicts for the fault
                        bits, the part's tilegrid, and the tiles already evaluated for this trace;
-                       and a query for the design's data
+                       and a query for the design's data, set of traced nodes
             Returns: Set of strings of nets connected to the requested node
     '''
+
+    # Add the current node to the set of traced nodes
+    traced_nodes.add(f'{tile_name}/{node}')
 
     # Create and load a new tile object and save it if it hasn't been run yet
     try:
@@ -656,9 +691,12 @@ def trace_node_connections(tile_name:str, node:str, fault_bits:dict, design_bits
             # Trace the node at the end of each wire connection
             for wire_cnx in wire_cnxs:
                 wire_tile, wire_node = wire_cnx.split('/')
-                found_nets.update(trace_node_connections(wire_tile, wire_node, fault_bits,
-                                                         design_bits, tilegrid,
-                                                         tile_collection, design))
+
+                # Do not trace previously traced nodes
+                if wire_cnx not in traced_nodes:
+                    found_nets.update(trace_node_connections(wire_tile, wire_node, fault_bits,
+                                                            design_bits, tilegrid,
+                                                            tile_collection, design, traced_nodes))
 
     return found_nets
 
