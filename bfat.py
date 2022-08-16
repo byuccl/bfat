@@ -178,11 +178,11 @@ def classify_fault_bits(group_bits:dict):
 
     # Iterate through each fault bit in the current bit group and classify fault bits
     for fault_bit, bit_info in group_bits.items():
-        tile, rsrc, fctn, dsgn_rsrc, _, fault_msg, _, _ = bit_info
+        tile, rsrc, fctn, dsgn_rsrc, _, fault_msg, aff_rsrcs, _ = bit_info
 
         # Classify fault bit by its significance and add it to its respective collections
-        if isinstance(tile, list):
-            undefined_bits[fault_bit] = tile
+        if tile == 'NA':
+            undefined_bits[fault_bit] = aff_rsrcs
         elif tile != 'NA' and 'not yet supported' in fault_msg:
             unsupported_bits[fault_bit] = [tile, rsrc, fctn]
         elif 'Not able to find any errors' in fault_msg or 'No instanced resource' in fault_msg:
@@ -239,11 +239,17 @@ def print_bit_group_section(section_name:str, section_bits, outfile:TextIOWrappe
             # Print out each undefined bit and its potential tiles
             for bit in section_bits:
                 outfile.write(f'{bit}\n')
-                outfile.write('\tPotential Tiles:\n')
-                # Print each potential tile for the undefined bit
-                for tile in section_bits[bit]:
-                    outfile.write(f'\t\t{tile}\n')
-                if section_bits[bit] == []:
+                outfile.write('\tPotential Affected Resources:\n')
+
+                # Print each potential tile and its cells for the undefined bit
+                for tile, possible_aff_rsrcs in section_bits[bit].items():
+                    outfile.write(f'\t\t{tile}:\n')
+                    for rsrc in possible_aff_rsrcs:
+                        outfile.write(f'\t\t\t{rsrc}\n')
+                    if possible_aff_rsrcs == []:
+                        outfile.write('\t\t\tNo resources found for this tile\n')
+
+                if section_bits[bit] == {}:
                     outfile.write('\t\tNo potential tiles found')
 
             outfile.write('\n')

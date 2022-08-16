@@ -765,7 +765,7 @@ class VivadoQuery(DesignQuery):
                 # Check each pip if their nodes match wires from the current node and connection
                 conn_wires = self.run_command('getNodeWires', conn)
                 for pip in pips:
-                    # Check if current pip nodes matche wires and the node hasn't been traced yet
+                    # Check if current pip nodes match wires and the node hasn't been traced yet
                     if pip[0] in node_wires and pip[1] in conn_wires and conn not in traced_nodes:
                         affected_rsrcs, traced_nodes = self.trace_affected_resources(net, conn_tile, conn_node,
                                                                                      traced_nodes, affected_rsrcs)
