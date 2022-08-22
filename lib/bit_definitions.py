@@ -217,9 +217,30 @@ def set_fault_bit_values(bit:FaultBit, tile_addr:list, tile_imgs:dict, design_bi
             bit.affected_rsrcs = design.get_affected_rsrcs(net, bit.tile, mux_name)
         else:
             bit.affected_rsrcs = ['No affected resources found']
+    # Special evaluation of CLB bits that do not correspond to BELs which can have cells
+    elif 'CLB' in bit.tile and '.' not in bit.resource:
+        site_name = get_global_site(bit.resource, bit.tile, design)
+        bit.affected_rsrcs = design.get_CLB_affected_resources(site_name, bit.function)
+
+        bit.resource = f'{site_name}.{bit.function}'
+        bit.function = 'Configuration'
+
+        if bit.affected_rsrcs:
+            bit.design_name = bit.resource.split('.')[1]
+
     else:
-        bit.design_name = get_bit_cell(bit.tile, bit.resource, design)
-        bit.affected_rsrcs = [bit.design_name]
+        # Get the site and bel name from the resource
+        rsrc_elements = bit.resource.split('.')
+        rsrc_site = rsrc_elements[0]
+        rsrc_bel = rsrc_elements[-1]
+
+        # Get the full site address from the tile and the site offset
+        site_name = get_global_site(rsrc_site, bit.tile, design)
+        
+        # Find the cell within the site that matches the bit's bel
+        if site_name != 'NA':
+            bit.design_name = get_site_related_cells(bit.tile, site_name, rsrc_bel, design)
+            bit.affected_rsrcs = [bit.design_name]
 
     # Give default value for affected resources if no specific resources are found
     if not bit.affected_rsrcs or (len(bit.affected_rsrcs) <= 1 and 'NA' in bit.affected_rsrcs):
@@ -256,7 +277,7 @@ def associate_bit(tiles:dict, tile_name:str, addr:str, bus_val:int):
     elif 'BRAM' in tile_name and bus_val == 0:
         # Check if the bit matches the intialization bit of a BRAM resource
         for curr_rsrc, rsrc_bit in tiles[tile_name].init_resources.items():
-            # If the bit matches, get the resource an function
+            # If the bit matches, get the resource and function
             if rsrc_bit == addr:
                 rsrc_elements = curr_rsrc.split('.')
                 rsrc = '.'.join(rsrc_elements[:-1])
@@ -273,66 +294,67 @@ def associate_bit(tiles:dict, tile_name:str, addr:str, bus_val:int):
                 fctn = rsrc_elements[-1]
                 break
 
+    # Handle duplicate bit function
+    if fctn == 'NOCLKINV':
+        fctn = 'CLKINV'
+
     return rsrc, fctn
 
-def get_bit_cell(tile:str, resource:str, design:DesignQuery):
+def get_global_site(local_site:str, tile:str, design:DesignQuery):
     '''
-        Searches through the data structure of the design's cells and retrieves the one 
-        associated with the bit if any exist.
-            Arguments: Strings of the bit's tile and resource, and a query for the design's data
-            Returns: String of the cell associated with the given bit's tile and resource
+        Converts a site name which is offset from the tile address to one which can
+        be interpreted independent of the tile offset
+            Arguments: String of site name from Project X-Ray database, string of tile name,
+                       design query object
+            Returns: String of the converted site name 
     '''
+    # Separate and identify the resource's root and offset if possible
+    try:
+        site_root, site_offset = local_site.split('_')
+    except ValueError:
+        return 'NA'
 
-    # Query design for cells in the tile it isn't already loaded
+    # Query design for sites in the tile if it isn't already loaded
     if tile not in design.cells:
         design.query_cells(tile)
 
-    # Find the cell if it is in a tile used in the design
+    # Find the site if it is in a tile used in the design
     if tile in design.cells:
-        rsrc_elements = resource.split('.')
-
-        # Separate and identify the resource's root and offset if possible
-        try:
-            rsrc_root, rsrc_offset = rsrc_elements[0].split('_')
-        except ValueError:
-            return 'NA'
-        rsrc_bel = rsrc_elements[-1]
-
         # Simplify the root for SLICE* sites
-        if 'SLICE' in rsrc_root:
-            rsrc_root = 'SLICE'
+        if 'SLICE' in site_root:
+            site_root = 'SLICE'
 
         # Add all sites matching the root to a list
-        sites = [site for site in design.cells[tile] if rsrc_root in site]
+        sites = [site for site in design.cells[tile] if site_root in site]
 
-        # Check for a matching cell if any related sites are found
+        # Check for a matching site if any related sites are found
         if sites:
-            # Identify related cells depending on the resource's X or Y offset
-            if 'Y' in rsrc_offset:
+            # Identify matching sites depending on the site's X or Y offset from the tile
+            if 'Y' in site_offset:
                 # Get the site's y index
                 tile_y = int(tile[tile.find('Y', tile.find('_X')) + 1:])
 
                 # Set the site's y offset
-                if '1' in rsrc_offset:
+                if '1' in site_offset:
                     y_off = 1
                 else:
                     y_off = 0
 
-                # Check if any site matches the y address and return its related cells
+                # Return the site which matches the y address
                 for site in sites:
-                    # Return related cells of site if the y address matches
+                    # Return site if the y address matches
                     if f'Y{tile_y + y_off}' in site:
-                        return get_site_related_cells(tile, site, rsrc_bel, design)
+                        return site
             
             else:
-                # Check if any site matches the local x offset and return its related cells
+                # Return the site which matches the x offset from the tile
                 for site in sites:
                     # Get the site's x index and offset
                     x_off = int(site[site.find('X') + 1:site.find('Y')]) % 2
 
-                    # Return related cells of site if its x offset matches its local site address
-                    if 'X0' in rsrc_offset and x_off == 0 or 'X1' in rsrc_offset and x_off > 0:
-                        return get_site_related_cells(tile, site, rsrc_bel, design)
+                    # Return the site if its x offset matches its local site address
+                    if 'X0' in site_offset and x_off == 0 or 'X1' in site_offset and x_off > 0:
+                        return site
     return 'NA'
 
 def get_site_related_cells(tile:str, site:str, bel:str, design:DesignQuery):

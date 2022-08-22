@@ -28,6 +28,7 @@ from abc import ABCMeta, abstractmethod
 from subprocess import Popen, PIPE, STDOUT
 from threading import Thread
 from queue import Queue, Empty
+import re
 
 ###################################
 #  VivadoQuery Outstream Classes  #
@@ -254,6 +255,10 @@ class DesignQuery(object):
 
     @abstractmethod
     def trace_affected_resources(self, net:str, tile:str, node:str, traced_nodes:set, affected_rsrcs:set):
+        pass
+
+    @abstractmethod
+    def get_CLB_affected_resources(self, tile:str, site:str, function:str):
         pass
 
     ##########################
@@ -602,6 +607,7 @@ class VivadoQuery(DesignQuery):
             'getNetAliases' : f'puts [get_nets -hier -segments -filter {{NAME =~ {arg1}}}]\n',
             # Site Commands
             'getSiteCells' : f'puts [get_cells -of [get_sites {arg1}]]\n',
+            'getSiteTile' : f'puts [get_tiles -of [get_sites {arg1}]]\n',
             # Tile Commands
             'getTileSites' : f'puts [get_sites -of [get_tiles {arg1}]]\n',
             'getTileNets' : f'puts [get_nets -of [get_tiles {arg1}]]\n',
@@ -629,7 +635,7 @@ class VivadoQuery(DesignQuery):
         # Return latest output from vivado if valid command, or return default value
         if tcl:
             # List of commands that return a string instead of a list
-            str_cmds = ['getCellBEL', 'getPIPNet', 'getDesignPart', 'getPinNet',
+            str_cmds = ['getCellBEL', 'getPIPNet', 'getDesignPart', 'getPinNet', 'getSiteTile',
                         'getPinDirection', 'getNodeSite', 'getNodeSitePin', 'getWireNode']
 
             # Send input tcl command to running vivado pipe
@@ -801,6 +807,53 @@ class VivadoQuery(DesignQuery):
                         affected_resources.union(self.trace_cells(tile, site, net_cell, affected_resources))
         
         return affected_resources
+
+    def get_CLB_affected_resources(self, site: str, function: str):
+        '''
+            Handles affected resource tracing for certain special cases in CLB tiles
+                Arguments: strings of the tile, site, and function of the bit
+                Returns: list of affected resources
+        '''
+
+        affected_rsrcs = set()
+        
+        # Define constants for the three edge case types to handle
+        ROUTING_BELS = ['CLKINV', 'NOCLKINV', 'CEUSEDMUX', 'SRUSEDMUX']
+        FF_CONTROL = ['FFSYNC', 'LATCH']
+        LUTRAM_CONTROL = ['WA7USED', 'WA8USED']
+
+        # Query cells in the tile
+        tile = self.run_command('getSiteTile', site)
+        self.query_cells(tile)
+
+        # Resource tracing for routing bels
+        if function in ROUTING_BELS:
+            # Add all used flip flops to the affected resources
+            affected_rsrcs = {cell for bel, cell in self.cells[tile][site].items() if 'FF' in bel}
+
+            in_slicem = 'CLBLM' in tile and int(re.split('X|Y', site)[1])%2 == 0
+            # Get any LUTRAMs if this is a CLKINV or NOCLKINV function and the site is a SLICEM
+            if in_slicem and function in ['CLKINV', 'NOCLKINV']:
+                # Add any cells mapped to LUTs to the affected resources
+                for bel, cell in self.cells[tile][site].items():
+                    if 'LUT' in bel:
+                        affected_rsrcs.add(cell)
+
+            # Trace downstream from all current affected cells
+            more_rsrcs = set()
+            for cell in affected_rsrcs:
+                more_rsrcs.union(self.trace_cells(tile, site, cell, affected_rsrcs))      
+            affected_rsrcs.union(more_rsrcs)          
+
+        # Resource fetching for flip-flop control bits
+        if function in FF_CONTROL:
+            affected_rsrcs = {cell for bel, cell in self.cells[tile][site].items() if 'FF' in bel}
+
+        # Resource fetching for LUTRAM control bits
+        if function in LUTRAM_CONTROL:
+            affected_rsrcs = {cell for bel, cell in self.cells[tile][site].items() if 'LUT' in bel}
+
+        return list(affected_rsrcs)
 
     ##################################
     #   find_fault_bits.py Helpers   #

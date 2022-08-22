@@ -120,7 +120,7 @@ def gen_tcl_cmds(fault_info:list, outfile:TextIOWrapper):
         
         # Print the tcl command for selecting the affected pips
         reformatted_pips = [f'{tile}/{tile_type}.{pip.split(" ")[0]}' for pip in aff_pips]
-        outfile.write(f'\t\tselect_objects [get_pips {{{" ".join(reformatted_pips)}}}]\n')
+        outfile.write(f'\t\tselect_objects [get_pips {{{" ".join(sorted(reformatted_pips))}}}]\n')
 
         msg_nets = []
 
@@ -242,9 +242,9 @@ def print_bit_group_section(section_name:str, section_bits, outfile:TextIOWrappe
                 outfile.write('\tPotential Affected Resources:\n')
 
                 # Print each potential tile and its cells for the undefined bit
-                for tile, possible_aff_rsrcs in section_bits[bit].items():
+                for tile, possible_aff_rsrcs in sorted(section_bits[bit].items()):
                     outfile.write(f'\t\t{tile}:\n')
-                    for rsrc in possible_aff_rsrcs:
+                    for rsrc in sorted(possible_aff_rsrcs):
                         outfile.write(f'\t\t\t{rsrc}\n')
                     if possible_aff_rsrcs == []:
                         outfile.write('\t\t\tNo resources found for this tile\n')
