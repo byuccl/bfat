@@ -737,44 +737,47 @@ class VivadoQuery(DesignQuery):
         # Find any non-INT or same-tile wire connections for the initial node
         sink_conns = {conn for conn in self.run_command('getWireConnections', tile, wire)}
 
+        # Verify that there are downstream connections of this node
+        if 'N' in sink_conns and 'A' in sink_conns:
+            return affected_rsrcs, traced_nodes
+
         # Trace each wire connection for initial cells used by the net in the current tile
         for conn in sink_conns:
             conn_tile, conn_node = conn.split('/')
-
-            # Trace affected cells in any non-INT tiles and trace net downstream in any INT tiles
-            if 'INT' not in conn:
-                # Query the cells in the tile if not already queried
-                if conn_tile not in self.cells:
-                    self.query_cells(conn_tile)
-                
-                init_cells = set()
-
-                # Get site info for the node matching the current wire
+            conn_wires = self.run_command('getNodeWires', conn)
+            
+            # If the connected tile is not an interconnect, check for cells
+            if 'INT' not in conn_tile:
+                # Attempt to get site info for the current node
                 site = self.run_command('getNodeSite', conn)
                 site_pin = self.run_command('getNodeSitePin', conn)
 
-                # Verify that a site_pin was found
+                # Check if a site pin was found
                 if site_pin and site_pin != 'NA':
+                    site_tile = self.run_command('getSiteTile', site)                
+                    # Query the cells in the tile if not already queried
+                    if site_tile not in self.cells:
+                        self.query_cells(site_tile)
+                    
+                    init_cells = set()
                     # Find any cells that are connected to the site pin
-                    for cell in self.cells[conn_tile][site].values():
+                    for cell in self.cells[site_tile][site].values():
                         cell_site_pins = self.run_command('getCellSitePins', cell)
 
                         # Identify if the node's site pin is connected to the current cell
                         if site_pin in cell_site_pins:
                             affected_rsrcs.add(cell)
                             init_cells.add(cell)
-                
-                # Trace the site's affected cells from each of the initial cells found
-                [affected_rsrcs.union(self.trace_cells(conn_tile, site, cell, affected_rsrcs)) for cell in init_cells]
 
-            else:
-                # Check each pip if their nodes match wires from the current node and connection
-                conn_wires = self.run_command('getNodeWires', conn)
-                for pip in pips:
-                    # Check if current pip nodes match wires and the node hasn't been traced yet
-                    if pip[0] in node_wires and pip[1] in conn_wires and conn not in traced_nodes:
-                        affected_rsrcs, traced_nodes = self.trace_affected_resources(net, conn_tile, conn_node,
-                                                                                     traced_nodes, affected_rsrcs)
+                    # Trace the site's affected cells from each of the initial cells found
+                    [affected_rsrcs.union(self.trace_cells(site_tile, site, cell, affected_rsrcs)) for cell in init_cells]
+
+            # Check each pip if their nodes match wires from the current node and connection
+            for pip in pips:
+                # Check if current pip nodes match wires and the node hasn't been traced yet
+                if pip[0] in node_wires and pip[1] in conn_wires and conn not in traced_nodes:
+                    affected_rsrcs, traced_nodes = self.trace_affected_resources(net, conn_tile, conn_node,
+                                                                                    traced_nodes, affected_rsrcs)
 
         return affected_rsrcs, traced_nodes
 
@@ -840,10 +843,9 @@ class VivadoQuery(DesignQuery):
                         affected_rsrcs.add(cell)
 
             # Trace downstream from all current affected cells
-            more_rsrcs = set()
-            for cell in affected_rsrcs:
-                more_rsrcs.union(self.trace_cells(tile, site, cell, affected_rsrcs))      
-            affected_rsrcs.union(more_rsrcs)          
+            original_rsrcs = affected_rsrcs.copy()
+            for cell in original_rsrcs:
+                self.trace_cells(tile, site, cell, affected_rsrcs)      
 
         # Resource fetching for flip-flop control bits
         if function in FF_CONTROL:

@@ -240,7 +240,7 @@ def set_fault_bit_values(bit:FaultBit, tile_addr:list, tile_imgs:dict, design_bi
         # Find the cell within the site that matches the bit's bel
         if site_name != 'NA':
             bit.design_name = get_site_related_cells(bit.tile, site_name, rsrc_bel, design)
-            bit.affected_rsrcs = [bit.design_name]
+            bit.affected_rsrcs = bit.design_name.split(', ')
 
     # Give default value for affected resources if no specific resources are found
     if not bit.affected_rsrcs or (len(bit.affected_rsrcs) <= 1 and 'NA' in bit.affected_rsrcs):
@@ -369,7 +369,7 @@ def get_site_related_cells(tile:str, site:str, bel:str, design:DesignQuery):
 
     # Return cell(s) found or 'NA' if none found
     if rel_cells:
-        return ', '.join(rel_cells)
+        return ', '.join(sorted(rel_cells))
     else:
         return 'NA'
 
