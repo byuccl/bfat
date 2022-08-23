@@ -31,10 +31,8 @@
         - output file (.json) of the generated fault bit list
 '''
 
-
 import json
 import random
-
 
 def parse_ll_file(ll_file:str):
     '''
@@ -112,7 +110,7 @@ def write_bit_list(ll_bits:list, num_bits:int, ll_file:str):
 
 def main():
     '''
-        Main function: Creates a fault bit list based on the bits in the provided .ebd file
+        Main function: Creates a fault bit list based on the bits in the provided .ll file
     '''
 
     # Gathers all bits from the .ll file
