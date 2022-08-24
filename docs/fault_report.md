@@ -29,14 +29,15 @@ Fault reports are organized into "bit groups", which divide fault bits into grou
 
 Significant Bits:
 ------------------------------
-bit_00001fa2_066_31 (0->1)
-	CLBLM_R_X63Y182 - SLICEM_X0.DLUT - INIT[00]
-	Resource Design Name: VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/cores_0_cpu_logic_cpu/IBusCachedPlugin_cache/decode_to_execute_SRC2[17]_i_6_TMR_2
-	INIT[00] bit altered for VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/cores_0_cpu_logic_cpu/IBusCachedPlugin_cache/decode_to_execute_SRC2[17]_i_6_TMR_2
+bit_004001a2_027_15 (1->0)
+	CLBLM_R_X3Y13 - SLICEM_X0.CLUT - INIT[00]
+	Resource Design Name: Counter/count[4]_i_5
+	INIT[00] bit altered for Counter/count[4]_i_5
 	Affected Resources:
-		VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/cores_0_cpu_logic_cpu/IBusCachedPlugin_cache/decode_to_execute_SRC2[17]_i_6_TMR_2
+		Counter/count[4]_i_5
 
-	select_objects [get_cells {VexRiscvLitexSmpCluster_Cc1_Iw32Is4096Iy1_Dw32Ds4096Dy1_ITs4DTs4_Ldw128_Ood/cores_0_cpu_logic_cpu/IBusCachedPlugin_cache/decode_to_execute_SRC2[17]_i_6_TMR_2}]
+	Vivado Tcl Commands:
+		select_objects [get_cells {Counter/count[4]_i_5}]
 
 Bits: 1
 Errors Found: 1 (100.0%)
@@ -50,7 +51,7 @@ The report then lists the bitstream address of the bit that BFAT determined to b
 1. The tile, BEL, and function of the bit within the BEL. We can see that the bit affected a LUT in a CLB tile.
 2. The name of the resource in the design that is mapped onto this LUT
 3. The fault message, stating that the initialization bit for the resource is affected by this bit upset. This fault message is different for different kinds of faults, which we will get to later.
-4. The affected design resources from this bit upset. This will likely seem redundant as this was already stated in step 2, but for other kinds of faults this section can provide more useful information
+4. The affected design resources from this bit upset. This may seem redundant as this was already stated in (2), but for other kinds of faults this section can provide more useful information
 5. Tcl command to select the design resource in Vivado
 
 The report then lists some basic statistics about the bits in the bit group (how many bits are in the group, the proportion of bits that cause errors)
@@ -66,18 +67,25 @@ The report then lists some basic statistics about the bits in the bit group (how
 
 Significant Bits:
 ------------------------------
-bit_00421b8b_054_19 (1->0)
-	INT_R_X55Y76 - WR1BEG_S0 2-20 Routing Mux - Column Bit
-	Resource Design Name: INT_R_X55Y76/WR1BEG_S0
-	Opens created for net(s): builder_sdcore_crc16inserter_state_TMR_2
+bit_00400107_024_10 (1->0)
+	INT_L_X2Y12 - ER1BEG1 2-20 Routing Mux - Column Bit
+	Resource Design Name: INT_L_X2Y12/ER1BEG1
+	Opens created for net(s): btnc_IBUF
 	Affected PIPs:
-		NR1END3->>WR1BEG_S0 (deactivated)
+		SL1END0->>ER1BEG1 (deactivated)
 	Affected Resources:
-		ODDR_6_i_4_TMR_2
+		Counter/FSM_sequential_cs[0]_i_1
+		Counter/FSM_sequential_cs[1]_i_1
+		Counter/FSM_sequential_cs[2]_i_1
+		Counter/FSM_sequential_cs_reg[0]
+		Counter/FSM_sequential_cs_reg[1]
+		Counter/FSM_sequential_cs_reg[2]
+		Counter/count[7]_i_5
 
-	select_objects [get_pips {INT_R_X55Y76/INT_R.NR1END3->>WR1BEG_S0}]
-	select_objects [get_nets {builder_sdcore_crc16inserter_state_TMR_2}]
-	select_objects [get_cells {ODDR_6_i_4_TMR_2}]
+	Vivado Tcl Commands:
+		select_objects [get_pips {INT_L_X2Y12/INT_L.SL1END0->>ER1BEG1}]
+		select_objects [get_nets {btnc_IBUF}]
+		select_objects [get_cells {Counter/FSM_sequential_cs[0]_i_1 Counter/FSM_sequential_cs[1]_i_1 Counter/FSM_sequential_cs[2]_i_1 Counter/FSM_sequential_cs_reg[0] Counter/FSM_sequential_cs_reg[1] Counter/FSM_sequential_cs_reg[2] Counter/count[7]_i_5}]
 
 Bits: 1
 Errors Found: 1 (100.0%)
@@ -90,9 +98,7 @@ Once again, the header states we are now looking for information from bit group 
 3. The fault message, stating that this bit upset created an open within the specified design net.
 4. The pip which was deactivated by this bit upset, causing the open within the specified net
 5. The affected resources from the net being cut off. BFAT will trace the path that the net would have taken through the FPGA in order to track which design resources were affected by this event.
-6. Tcl command to select the pip which was deactivated
-7. Tcl command to select the net which was opened
-8. Tcl command to select all of the design elements which were found during the trace of this net
+6. Tcl commands to select the pip which was deactivated, the net which was opened, and the downstream affected resources
 
 ---
 
@@ -105,24 +111,27 @@ Once again, the header states we are now looking for information from bit group 
 
 Significant Bits:
 ------------------------------
-bit_00421b88_054_18 (0->1)
-	INT_R_X55Y76 - WR1BEG_S0 2-20 Routing Mux - Column Bit
-	Resource Design Name: INT_R_X55Y76/WR1BEG_S0
-	Shorts formed between net(s): builder_sdcore_crc16inserter_state_TMR_2, ODDR_6_i_8_n_0_TMR_0
+bit_00400193_028_22 (0->1)
+	INT_R_X3Y14 - BYP_ALT4 5-24 Routing Mux - Row Bit
+	Resource Design Name: INT_R_X3Y14/BYP_ALT4
+	Shorts formed between net(s): Counter/Q[5] (initially connected), Counter/Q[7]
 	Affected PIPs:
-		WR1END3->>WR1BEG_S0 (activated)
+		NR1END1->>BYP_ALT4 (activated)
 	Affected Resources:
-		ODDR_6_i_4_TMR_2
+		Counter/count_reg[7]_i_7
 
-	select_objects [get_pips {INT_R_X55Y76/INT_R.WR1END3->>WR1BEG_S0}]
-	select_objects [get_nets {ODDR_6_i_8_n_0_TMR_0 builder_sdcore_crc16inserter_state_TMR_2}]
-	select_objects [get_cells {ODDR_6_i_4_TMR_2}]
+	Vivado Tcl Commands:
+		select_objects [get_pips {INT_R_X3Y14/INT_R.NR1END1->>BYP_ALT4}]
+		select_objects [get_nets {Counter/Q[5] Counter/Q[7]}]
+		select_objects [get_cells {Counter/count_reg[7]_i_7}]
 
 Bits: 1
 Errors Found: 1 (100.0%)
 ```
 
 This type of fault is similar to an open within a net. However, this bit being activated actually caused a routing mux to select two different, distinct signals at once, creating a short between two nets.
+
+BFAT will keep track of the net that was originally connected to the routing mux before the short caused by the bit upset with that "initially connected" marker.
 
 ---
 
@@ -135,24 +144,31 @@ This type of fault is similar to an open within a net. However, this bit being a
 
 Significant Bits:
 ------------------------------
-bit_00421b8e_054_19 (0->1)
-	INT_R_X55Y76 - WR1BEG_S0 2-20 Routing Mux - Row Bit
-	Resource Design Name: INT_R_X55Y76/WR1BEG_S0
-	Shorts formed between net(s): Unconnected Node(LOGIC_OUTS7), builder_sdcore_crc16inserter_state_TMR_2
+bit_0040010e_024_11 (0->1)
+	INT_L_X2Y12 - ER1BEG1 2-20 Routing Mux - Row Bit
+	Resource Design Name: INT_L_X2Y12/ER1BEG1
+	Shorts formed between net(s): Unconnected Wire(LOGIC_OUTS_L4), btnc_IBUF (initially connected)
 	Affected PIPs:
-		LOGIC_OUTS7->>WR1BEG_S0 (activated)
+		LOGIC_OUTS_L4->>ER1BEG1 (activated)
 	Affected Resources:
-		ODDR_6_i_4_TMR_2
+		Counter/FSM_sequential_cs[0]_i_1
+		Counter/FSM_sequential_cs[1]_i_1
+		Counter/FSM_sequential_cs[2]_i_1
+		Counter/FSM_sequential_cs_reg[0]
+		Counter/FSM_sequential_cs_reg[1]
+		Counter/FSM_sequential_cs_reg[2]
+		Counter/count[7]_i_5
 
-	select_objects [get_pips {INT_R_X55Y76/INT_R.LOGIC_OUTS7->>WR1BEG_S0}]
-	select_objects [get_nets {builder_sdcore_crc16inserter_state_TMR_2}]
-	select_objects [get_cells {ODDR_6_i_4_TMR_2}]
+	Vivado Tcl Commands:
+		select_objects [get_pips {INT_L_X2Y12/INT_L.LOGIC_OUTS_L4->>ER1BEG1}]
+		select_objects [get_nets {btnc_IBUF}]
+		select_objects [get_cells {Counter/FSM_sequential_cs[0]_i_1 Counter/FSM_sequential_cs[1]_i_1 Counter/FSM_sequential_cs[2]_i_1 Counter/FSM_sequential_cs_reg[0] Counter/FSM_sequential_cs_reg[1] Counter/FSM_sequential_cs_reg[2] Counter/count[7]_i_5}]
 
 Bits: 1
 Errors Found: 1 (100.0%)
 ```
 
-This is another example of a short in an interconnect tile. However, instead of a short between two nets, this upset caused a routing mux to select both a net and an input node without a net mapped onto it. These are referred to as "unconnected nodes".
+This is another example of a short in an interconnect tile. However, instead of a short between two nets, this upset caused a routing mux to select both a net and an input wire without a net mapped onto it. These are referred to as "unconnected wires".
 
 ---
 
@@ -166,12 +182,13 @@ This is another example of a short in an interconnect tile. However, instead of 
 Undefined Bits:
 ------------------------------
 bit_0000002a_000_00
-
+	Potential Affected Resources:
+		No potential tiles found
 Bits: 1
 Errors Found: 0 (0.0%)
 ```
 
-In this bit group, a bitstream address was provided that does not exist, since the frame "0x0000002a" is not a defined frame address for the provided part. So, BFAT will classify it as an undefined bit and no analysis will be performed.
+In this bit group, a bitstream address was provided for which a resource could not be found in the Project X-Ray database. BFAT classifies these as "undefined bits". Typical analysis cannot be performed for undefined bits, though BFAT will still attempt to find any tiles and resources that the bit *might* be related to. In this case no possible related tiles could be found, however.
 
 ---
 
@@ -184,8 +201,8 @@ In this bit group, a bitstream address was provided that does not exist, since t
 
 Errorless Bits:
 ------------------------------
-bit_00000e9a_014_15: CLBLM_R_X29Y157 - SLICEL_X1.ALUT - INIT[00] - NA
-bit_00000895_040_07: INT_R_X17Y170 - BYP_ALT0 5-24 Routing Mux - Row Bit - INT_R_X17Y170/BYP_ALT0
+bit_0000051a_093_15: CLBLM_L_X10Y96 - SLICEL_X1.ALUT - INIT[00] - NA
+bit_00000215_087_07: INT_L_X4Y93 - BYP_ALT0 5-24 Routing Mux - Row Bit - INT_L_X4Y93/BYP_ALT0
 
 Bits: 2
 Errors Found: 0 (0.0%)
@@ -198,6 +215,11 @@ In this last bit group, two bits were provided. However, BFAT has not detected t
 ### Statistics Footer
 
 ```
+======================================================================
+                   Design modelled: counter_top.dcp
+				Total time elapsed: 2.29 sec	(0 min)
+----------------------------------------------------------------------
+
 Bit Groups: 6
 Bit Groups w/ Errors: 4 (66.67%)
 
@@ -206,8 +228,8 @@ Routing Fault Bits: 4 (57.14%)
 CLB Fault Bits: 2 (28.57%)
 Unsupported Fault Bits: 0 (0.0%)
 Unknown Fault Bits: 1 (14.29%)
-Bits Driven High: 5 (71.43%)
-Bits Driven Low: 1 (14.29%)
+Bits Driven High: 4 (57.14%)
+Bits Driven Low: 2 (28.57%)
 
 Found Errors: 4 (57.14%)
 PIP Open Errors: 1 (14.29%)
