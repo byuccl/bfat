@@ -26,8 +26,7 @@
 
 from os.path import exists
 
-# Directory that contains the ProjectXray .db files
-XRAY_DB = 'database/prjxray-db'
+get_xray_dir = 'stuff'
 
 class Tile:
     '''
@@ -230,7 +229,7 @@ class Tile:
             if 'xc7z' in part:
                 arch = "zynq7"
         
-        segbits_path = f'{XRAY_DB}/{arch}/segbits_{self.type.lower()}.db'
+        segbits_path = f'{get_xray_dir()}/{arch}/segbits_{self.type.lower()}.db'
 
         # Make sure that the segbits file for this tile type exists
         if exists(segbits_path):
@@ -278,7 +277,7 @@ class Tile:
 
         # Add BRAM initialization bit addresses if the tile is a BRAM
         if self.type in ('BRAM_L', 'BRAM_R'):
-            segbits_BRAM_path = f'{XRAY_DB}/{arch}/segbits_{self.type.lower()}.block_ram.db'
+            segbits_BRAM_path = f'{get_xray_dir()}/{arch}/segbits_{self.type.lower()}.block_ram.db'
 
             # Make sure that the segbits file for this tile type exists
             if exists(segbits_BRAM_path):
@@ -309,7 +308,7 @@ class Tile:
 
         # Add default/always active pips from ppips file if the tile is an interconnect
         if self.type in ('INT_L', 'INT_R'):
-            ppips_path = f'{XRAY_DB}/{arch}/ppips_{self.type.lower()}.db'
+            ppips_path = f'{get_xray_dir()}/{arch}/ppips_{self.type.lower()}.db'
 
             # Make sure that the ppips file for this tile type exists
             if exists(ppips_path):
@@ -414,3 +413,17 @@ class RTMux:
             else:
                 print('Unrecognized number of inclusions (' + str(cfg_bit_cnt[cfgb])
                       + ') in routing mux for ' + cfgb)
+
+def get_xray_dir():
+    '''
+        Gets the absolute path of the Project X-Ray database directory
+            Returns: string of the X-Ray database path
+    '''
+
+    # Directory that contains the ProjectXray .db files (relative to bfat root)
+    XRAY_DB = 'database/prjxray-db'
+
+    # Absolute path to bfat root
+    bfat_root = '/'.join(__file__.split('/')[:-2])
+
+    return f'{bfat_root}/{XRAY_DB}'

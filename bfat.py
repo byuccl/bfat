@@ -112,13 +112,15 @@ def gen_tcl_cmds(fault_info:list, outfile:TextIOWrapper):
     tile, _, _, _, _, fault_msg, aff_rsrcs, aff_pips = fault_info
     tile_type = get_tile_type_name(tile)
 
+    outfile.write('\n\tVivado Tcl Commands:\n')
+
     # Get the nets and pips from the fault bit's fault info and add them to
     # the generated tcl command to select them in Vivado
     if 'INT' in tile and ('Opens' in fault_msg or 'Shorts' in fault_msg):
         
         # Print the tcl command for selecting the affected pips
         reformatted_pips = [f'{tile}/{tile_type}.{pip.split(" ")[0]}' for pip in aff_pips]
-        outfile.write(f'\n\tselect_objects [get_pips {{{" ".join(reformatted_pips)}}}]')
+        outfile.write(f'\t\tselect_objects [get_pips {{{" ".join(sorted(reformatted_pips))}}}]\n')
 
         msg_nets = []
 
@@ -149,13 +151,13 @@ def gen_tcl_cmds(fault_info:list, outfile:TextIOWrapper):
             msg_nets_str = msg_nets_str.replace("GLOBAL_LOGIC0", "GND_2")
             msg_nets_str = msg_nets_str.replace("GLOBAL_LOGIC1", "VCC_2")
 
-            outfile.write(f'\n\tselect_objects [get_nets {{{msg_nets_str}}}]')
+            outfile.write(f'\t\tselect_objects [get_nets {{{msg_nets_str}}}]\n')
 
     # Get the cells of the affected resources if there are any and add them
     # to the generated tcl command to select them in Vivado
     if aff_rsrcs and 'NA' not in aff_rsrcs and 'No affected resources found' not in aff_rsrcs:
         aff_rsrcs_str = ' '.join(sorted(aff_rsrcs))
-        outfile.write(f'\n\tselect_objects [get_cells {{{aff_rsrcs_str}}}]\n')
+        outfile.write(f'\t\tselect_objects [get_cells {{{aff_rsrcs_str}}}]\n')
     elif 'INT' in tile and ('Opens' in fault_msg or 'Shorts' in fault_msg):
         outfile.write('\n')
     outfile.write('\n')
@@ -169,18 +171,18 @@ def classify_fault_bits(group_bits:dict):
                      report and a list of the undefined bits in the fault_report
     '''
 
-    undefined_bits = []
+    undefined_bits = {}
     unsupported_bits = {}
     errorless_bits = {}
     significant_bits = {}
 
     # Iterate through each fault bit in the current bit group and classify fault bits
     for fault_bit, bit_info in group_bits.items():
-        tile, rsrc, fctn, dsgn_rsrc, _, fault_msg, _, _ = bit_info
+        tile, rsrc, fctn, dsgn_rsrc, _, fault_msg, aff_rsrcs, _ = bit_info
 
         # Classify fault bit by its significance and add it to its respective collections
         if tile == 'NA':
-            undefined_bits.append(fault_bit)
+            undefined_bits[fault_bit] = aff_rsrcs
         elif tile != 'NA' and 'not yet supported' in fault_msg:
             unsupported_bits[fault_bit] = [tile, rsrc, fctn]
         elif 'Not able to find any errors' in fault_msg or 'No instanced resource' in fault_msg:
@@ -234,9 +236,22 @@ def print_bit_group_section(section_name:str, section_bits, outfile:TextIOWrappe
                 gen_tcl_cmds(bit_info, outfile)
 
         elif section_name == 'Undefined Bits':
-            # Print out each undefined bit
+            # Print out each undefined bit and its potential tiles
             for bit in section_bits:
                 outfile.write(f'{bit}\n')
+                outfile.write('\tPotential Affected Resources:\n')
+
+                # Print each potential tile and its cells for the undefined bit
+                for tile, possible_aff_rsrcs in sorted(section_bits[bit].items()):
+                    outfile.write(f'\t\t{tile}:\n')
+                    for rsrc in sorted(possible_aff_rsrcs):
+                        outfile.write(f'\t\t\t{rsrc}\n')
+                    if possible_aff_rsrcs == []:
+                        outfile.write('\t\t\tNo resources found for this tile\n')
+
+                if section_bits[bit] == {}:
+                    outfile.write('\t\tNo potential tiles found')
+
             outfile.write('\n')
         else:
             # Print out each error-less bit and bit information

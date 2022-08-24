@@ -69,4 +69,4 @@ To run the script, simple provide the .ebd file and the number of bits to select
 python3 essential_bits.py <ebd_file> <num_bits>
 ```
 
-The script will generate a fault bit list containing the number of bits specified in the command-line interface.
+The script will generate a fault bit list containing a random selection of the number of bits specified in the command-line interface.
