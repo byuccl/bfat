@@ -217,17 +217,24 @@ def set_fault_bit_values(bit:FaultBit, tile_addr:list, tile_imgs:dict, design_bi
             bit.affected_rsrcs = design.get_affected_rsrcs(net, bit.tile, mux_name)
         else:
             bit.affected_rsrcs = ['No affected resources found']
+
     # Special evaluation of CLB bits that do not correspond to BELs which can have cells
     elif 'CLB' in bit.tile and '.' not in bit.resource:
         site_name = get_global_site(bit.resource, bit.tile, design)
-        bit.affected_rsrcs = design.get_CLB_affected_resources(site_name, bit.function)
 
-        bit.resource = f'{site_name}.{bit.function}'
+        # Attempt to get affected resources within this site if it is used
+        if site_name != 'NA':
+            bit.affected_rsrcs = design.get_CLB_affected_resources(site_name, bit.function)
+
+        # Revise bit object attributes
+        bit.resource = f'{bit.resource}.{bit.function}'
         bit.function = 'Configuration'
-
-        if bit.affected_rsrcs:
+        if bit.affected_rsrcs and 'NA' not in bit.affected_rsrcs:
             bit.design_name = bit.resource.split('.')[1]
+        else:
+            bit.fault = 'Not able to find any errors'
 
+    # Standard evaluation of all other fault bits
     else:
         # Get the site and bel name from the resource
         rsrc_elements = bit.resource.split('.')
@@ -433,8 +440,16 @@ def eval_INT_tile(tile:Tile, muxes:set, int_fault_bits:dict, design_bits:list, t
         if len(fault_cnctd_srcs) > 1:
             short_srcs = fault_cnctd_srcs
 
+        # Determine the original source connected to the sink
+        short_srcs_copy = short_srcs.copy()
+        for src in short_srcs_copy:
+            if src in init_cnctd_srcs[mux]:
+                init_src = src + ' (initially connected)'
+                short_srcs.remove(src)
+                short_srcs.add(init_src)
+
         # Get the affected pips for each fault bit related to the current mux
-        mux_affected_pips = get_affected_pips(tile_fault_bits, mux, open_srcs, short_srcs, tile)
+        mux_affected_pips = get_affected_pips(tile_fault_bits, mux, open_srcs, short_srcs_copy, tile)
 
         # Generate fault message using the shorts and opens sources
         if open_srcs and short_srcs:
@@ -601,10 +616,15 @@ def sub_pins_with_nets(msg:str, tile:str, fault_bits:dict, tilegrid:dict, design
 
         # Get nets for pins from design
         for p in pins.split(', '):
-            net = design.get_net(tile, p)
+            pin = p.split()[0]
+            is_init_cnctn = '(initially connected)' in p
 
-            # Add bit to section nets if found and to indirect pins of not
-            if net != 'NA':
+            net = design.get_net(tile, pin)
+
+            # Add bit to section nets if found and to indirect pins if not
+            if net != 'NA' and is_init_cnctn:
+                sec_nets.add(f'{net} (initially connected)')
+            elif net != 'NA':
                 sec_nets.add(net)
             else:
                 indirect_pins.add(p)
@@ -614,7 +634,7 @@ def sub_pins_with_nets(msg:str, tile:str, fault_bits:dict, tilegrid:dict, design
             conn_nets = find_connected_net(tile, idp, fault_bits, design_bits, tilegrid, design)
             
             # Remove any nets already found from the connected nets found
-            rem_nets = {cn for cn in conn_nets if cn in sec_nets}
+            rem_nets = {cn for cn in conn_nets if cn in sec_nets or f'{cn} (initially connected)' in sec_nets}
             conn_nets.difference_update(rem_nets)
 
             # Add found nets to section nets or add placeholder for pin if none are found

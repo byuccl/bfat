@@ -151,6 +151,9 @@ def gen_tcl_cmds(fault_info:list, outfile:TextIOWrapper):
             msg_nets_str = msg_nets_str.replace("GLOBAL_LOGIC0", "GND_2")
             msg_nets_str = msg_nets_str.replace("GLOBAL_LOGIC1", "VCC_2")
 
+            # Remove "(initially connected)" from string"
+            msg_nets_str = msg_nets_str.replace(' (initially connected)', '')
+
             outfile.write(f'\t\tselect_objects [get_nets {{{msg_nets_str}}}]\n')
 
     # Get the cells of the affected resources if there are any and add them
