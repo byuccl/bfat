@@ -143,7 +143,7 @@ def get_bit_group_stats(group_bits:dict, print_flag = False, outfile: TextIOWrap
         tile, _, _, _, change, fault_error, _, _ = group_bits[fault_bit]
 
         # Update the statistics based on the current fault bit's tile
-        if 'NA' in tile:
+        if tile == 'NA':
             group_stats.stats['Unknown Fault Bits'] += 1
         elif 'INT_L' in tile or 'INT_R' in tile:
             group_stats.stats['Routing Fault Bits'] += 1
