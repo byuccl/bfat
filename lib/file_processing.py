@@ -25,7 +25,7 @@
 '''
 
 import json
-from lib.tile import XRAY_DB
+from lib.tile import get_xray_dir
 
 #####################################################
 #   Finding and Parsing in the Part tilegrid.json   #
@@ -143,8 +143,12 @@ def get_part_tilegrid(part:str):
             # Break loop after adding first non-numeric character if artix7 or kintex7
             if (arch == "artix7" or arch == "kintex7") and not str.isnumeric(char):
                 break
-
-        return f'{XRAY_DB}/{arch}/{part_fam}/tilegrid.json'
+        
+        # xc7a35t uses the same tilegrid.json as the xc7a50t
+        if part_fam == 'xc7a35t':
+            return f'{get_xray_dir()}/{arch}/xc7a50t/tilegrid.json'
+        else:
+            return f'{get_xray_dir()}/{arch}/{part_fam}/tilegrid.json'
 
     else:
         raise ValueError

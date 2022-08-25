@@ -256,6 +256,10 @@ class DesignQuery(object):
     def trace_affected_resources(self, net:str, tile:str, node:str, traced_nodes:set, affected_rsrcs:set):
         pass
 
+    @abstractmethod
+    def get_CLB_affected_resources(self, tile:str, site:str, function:str):
+        pass
+
     ##########################
     #   Print Queried Data   #
     ##########################
@@ -602,6 +606,7 @@ class VivadoQuery(DesignQuery):
             'getNetAliases' : f'puts [get_nets -hier -segments -filter {{NAME =~ {arg1}}}]\n',
             # Site Commands
             'getSiteCells' : f'puts [get_cells -of [get_sites {arg1}]]\n',
+            'getSiteTile' : f'puts [get_tiles -of [get_sites {arg1}]]\n',
             # Tile Commands
             'getTileSites' : f'puts [get_sites -of [get_tiles {arg1}]]\n',
             'getTileNets' : f'puts [get_nets -of [get_tiles {arg1}]]\n',
@@ -629,7 +634,7 @@ class VivadoQuery(DesignQuery):
         # Return latest output from vivado if valid command, or return default value
         if tcl:
             # List of commands that return a string instead of a list
-            str_cmds = ['getCellBEL', 'getPIPNet', 'getDesignPart', 'getPinNet',
+            str_cmds = ['getCellBEL', 'getPIPNet', 'getDesignPart', 'getPinNet', 'getSiteTile',
                         'getPinDirection', 'getNodeSite', 'getNodeSitePin', 'getWireNode']
 
             # Send input tcl command to running vivado pipe
@@ -731,44 +736,47 @@ class VivadoQuery(DesignQuery):
         # Find any non-INT or same-tile wire connections for the initial node
         sink_conns = {conn for conn in self.run_command('getWireConnections', tile, wire)}
 
+        # Verify that there are downstream connections of this node
+        if 'N' in sink_conns and 'A' in sink_conns:
+            return affected_rsrcs, traced_nodes
+
         # Trace each wire connection for initial cells used by the net in the current tile
         for conn in sink_conns:
             conn_tile, conn_node = conn.split('/')
-
-            # Trace affected cells in any non-INT tiles and trace net downstream in any INT tiles
-            if 'INT' not in conn:
-                # Query the cells in the tile if not already queried
-                if conn_tile not in self.cells:
-                    self.query_cells(conn_tile)
-                
-                init_cells = set()
-
-                # Get site info for the node matching the current wire
+            conn_wires = self.run_command('getNodeWires', conn)
+            
+            # If the connected tile is not an interconnect, check for cells
+            if 'INT' not in conn_tile:
+                # Attempt to get site info for the current node
                 site = self.run_command('getNodeSite', conn)
                 site_pin = self.run_command('getNodeSitePin', conn)
 
-                # Verify that a site_pin was found
+                # Check if a site pin was found
                 if site_pin and site_pin != 'NA':
+                    site_tile = self.run_command('getSiteTile', site)                
+                    # Query the cells in the tile if not already queried
+                    if site_tile not in self.cells:
+                        self.query_cells(site_tile)
+                    
+                    init_cells = set()
                     # Find any cells that are connected to the site pin
-                    for cell in self.cells[conn_tile][site].values():
+                    for cell in self.cells[site_tile][site].values():
                         cell_site_pins = self.run_command('getCellSitePins', cell)
 
                         # Identify if the node's site pin is connected to the current cell
                         if site_pin in cell_site_pins:
                             affected_rsrcs.add(cell)
                             init_cells.add(cell)
-                
-                # Trace the site's affected cells from each of the initial cells found
-                [affected_rsrcs.union(self.trace_cells(conn_tile, site, cell, affected_rsrcs)) for cell in init_cells]
 
-            else:
-                # Check each pip if their nodes match wires from the current node and connection
-                conn_wires = self.run_command('getNodeWires', conn)
-                for pip in pips:
-                    # Check if current pip nodes matche wires and the node hasn't been traced yet
-                    if pip[0] in node_wires and pip[1] in conn_wires and conn not in traced_nodes:
-                        affected_rsrcs, traced_nodes = self.trace_affected_resources(net, conn_tile, conn_node,
-                                                                                     traced_nodes, affected_rsrcs)
+                    # Trace the site's affected cells from each of the initial cells found
+                    [affected_rsrcs.union(self.trace_cells(site_tile, site, cell, affected_rsrcs)) for cell in init_cells]
+
+            # Check each pip if their nodes match wires from the current node and connection
+            for pip in pips:
+                # Check if current pip nodes match wires and the node hasn't been traced yet
+                if pip[0] in node_wires and pip[1] in conn_wires and conn not in traced_nodes:
+                    affected_rsrcs, traced_nodes = self.trace_affected_resources(net, conn_tile, conn_node,
+                                                                                    traced_nodes, affected_rsrcs)
 
         return affected_rsrcs, traced_nodes
 
@@ -801,6 +809,52 @@ class VivadoQuery(DesignQuery):
                         affected_resources.union(self.trace_cells(tile, site, net_cell, affected_resources))
         
         return affected_resources
+
+    def get_CLB_affected_resources(self, site: str, function: str):
+        '''
+            Handles affected resource tracing for certain special cases in CLB tiles
+                Arguments: strings of the tile, site, and function of the bit
+                Returns: list of affected resources
+        '''
+
+        affected_rsrcs = set()
+        
+        # Define constants for the three edge case types to handle
+        ROUTING_BELS = ['CLKINV', 'NOCLKINV', 'CEUSEDMUX', 'SRUSEDMUX']
+        FF_CONTROL = ['FFSYNC', 'LATCH']
+        LUTRAM_CONTROL = ['WA7USED', 'WA8USED']
+
+        # Query cells in the tile
+        tile = self.run_command('getSiteTile', site)
+        self.query_cells(tile)
+
+        # Resource tracing for routing bels
+        if function in ROUTING_BELS:
+            # Add all used flip flops to the affected resources
+            affected_rsrcs = {cell for bel, cell in self.cells[tile][site].items() if 'FF' in bel}
+
+            in_slicem = 'CLBLM' in tile and int(re.split('X|Y', site)[1])%2 == 0
+            # Get any LUTRAMs if this is a CLKINV or NOCLKINV function and the site is a SLICEM
+            if in_slicem and function in ['CLKINV', 'NOCLKINV']:
+                # Add any cells mapped to LUTs to the affected resources
+                for bel, cell in self.cells[tile][site].items():
+                    if 'LUT' in bel:
+                        affected_rsrcs.add(cell)
+
+            # Trace downstream from all current affected cells
+            original_rsrcs = affected_rsrcs.copy()
+            for cell in original_rsrcs:
+                self.trace_cells(tile, site, cell, affected_rsrcs)      
+
+        # Resource fetching for flip-flop control bits
+        if function in FF_CONTROL:
+            affected_rsrcs = {cell for bel, cell in self.cells[tile][site].items() if 'FF' in bel}
+
+        # Resource fetching for LUTRAM control bits
+        if function in LUTRAM_CONTROL:
+            affected_rsrcs = {cell for bel, cell in self.cells[tile][site].items() if 'LUT' in bel}
+
+        return list(affected_rsrcs)
 
     ##################################
     #   find_fault_bits.py Helpers   #

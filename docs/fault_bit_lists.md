@@ -40,4 +40,4 @@ The whitespace style does not need to be identical, but the data structure must 
     - Much of the time you will only need to examine the effects of one bit upset at a time, but BFAT can also catch multi-bit upsets. These are errors that do occur when two separate bits are flipped at the same time when an error might not occur if the bits are flipped individually.
 - The innermost scope represents a single bit address, which is divided into the hexadecimal frame address, the word offset within that frame, and the bit offset within the word.
 
-BFAT will then go through each bit group and simulate the effects of flipping all of the bits in the group at once. The tool will then output the results of its analysis in a fault report, which is detailed in `fault_report.md`.
+BFAT will then go through each bit group and simulate the effects of flipping all of the bits in the group at once. The tool will then output the results of its analysis in a fault report, which is explained in detail [here](fault_report.md).

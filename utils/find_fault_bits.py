@@ -42,12 +42,19 @@
         - output file (.json) in the working directory that contains the fault bits
 '''
 
+import sys
+
+# Add the parent directory of this file (bfat root) to the interpreter's path
+sys.path.append(f'{"/".join(__file__.split("/")[:-1])}/..')
+
+# Import various functions from BFAT flow
 from bfat import get_tile_type_name
 from bitread import get_high_bits, get_frame_list
 from lib.design_query import DesignQuery, VivadoQuery
 from lib.file_processing import parse_tilegrid
 from lib.tile import Tile
 from lib.bit_definitions import bit_bitstream_addr
+
 import subprocess
 import json
 import os

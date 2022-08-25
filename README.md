@@ -20,7 +20,7 @@ Scripts included from the local library:
 - `statistics.py`: Reads the report data for the design and adds a footer at the end of the report file to report some statistics of the design and faults found.
 - `tile.py`: Creates the classes to store the information on the tiles and routing muxes for the given FPGA design.
 
-Utility scripts to generate fault bit lists for user designs (see `docs/sample_bit_scripts.md` for more info):
+Utility scripts to generate fault bit lists for user designs (see [here](docs/sample_bit_scripts.md) for more info):
 
 - `find_fault_bits.py`: python tool that a user can use on their own design to generate a sample fault bit list
 - `ll_sample_bits.py`: python tool that a user can run on a generated logic location (.ll) file to generate a sample fault bit list
@@ -48,7 +48,7 @@ BFAT utilizes the ProjectXray database in its design analysis and clones the dat
 2. Install Vivado HDL Tools
     > **Note:** We recommend Vivado version 2021.2 or later, as earlier versions are untested and we cannot guarantee that they will work
 
-3. Install Python 3.8+, its cooresponding Virtual Environement (venv) module, and a valid Java JDK
+3. Install Python 3.8+, its corresponding Virtual Environement (venv) module, and a valid Java JDK
     ```
     sudo apt install python<dist> python<dist>-venv default-jdk
     ```
@@ -84,7 +84,7 @@ BFAT utilizes the ProjectXray database in its design analysis and clones the dat
     - The bitstream of the design to be analyzed
         > **Note:** If the bits_file flag (-bf) is used, a .bits file (as generated from bitread.py) will be read in instead of a bitstream
     - A dcp checkpoint file of the routed design to be analyzed
-    - A list of fault bits to evaluate in a .json file (see `docs/fault_bit_lists.md` for details on formatting)
+    - A list of fault bits to evaluate in a .json file (see [here](docs/fault_bit_lists.md) for details on formatting)
     - The `-rpd` flag if running with Rapidwright
 
 
@@ -95,7 +95,8 @@ BFAT utilizes the ProjectXray database in its design analysis and clones the dat
     python3 bfat.py <bitstream> <dcp> <fault_bits>
     ```
 
-*To see more specifics on running BFAT, look at the help information provided by running `python3 bfat.py -h`
+* To see more specifics on running BFAT, look at the help information provided by running `python3 bfat.py -h`
+* First time users may want to use the demo designs provided in the Releases tab. Information on how to use those designs is provided [here](docs/demo_designs.md).
 
 ---
 
@@ -110,13 +111,14 @@ BFAT utilizes the ProjectXray database in its design analysis and clones the dat
             ```
             source /opt/Xilinx/Vivado/<vivado_version>/settings64.sh
             ```
-            > **Note:** that this is the default path. Vivado may be installed in a different directory on your machine.
+            > **Note:** This is the default path. Vivado may be installed in a different directory on your machine.
 
 ---
 
 ## Supported Parts:
 
 ### Artix-7
+- xc7a35t family
 - xc7a50t family
 - xc7a100t family
 - xc7a200t family

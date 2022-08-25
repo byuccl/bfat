@@ -31,7 +31,7 @@
         - List of all design bits in the format "bit_[base_frame]_[word_offset]_[bit_offset]"
 '''
 
-from lib.tile import XRAY_DB
+from lib.tile import get_xray_dir
 
 #################################################
 #                Helper functions               # 
@@ -193,7 +193,7 @@ def get_frame_list(part:str):
         family = "zynq7"
 
     # Open the part.json file for the part
-    with open(f"{XRAY_DB}/{family}/{part}/part.json", "r") as p_j:
+    with open(f"{get_xray_dir()}/{family}/{part}/part.json", "r") as p_j:
         
         for line in p_j:           
             # Set corresponding bit for whether the frame's row is in the top or bottom half

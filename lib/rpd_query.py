@@ -1,3 +1,21 @@
+#!/usr/bin/env python3
+#
+# Copyright (C) 2022 Brigham Young University
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# SPDX-License-Identifier: Apache-2.0
+
 '''
     rpd_query.py
     BYU Configurable Computing Lab (CCL): BitInspector project 2022
@@ -275,6 +293,55 @@ class RpdQuery(DesignQuery):
                         cells, traced_bels = self.trace_cells(out_pin, site_inst, cells, traced_bels)
         
         return cells, traced_bels
+
+    def get_CLB_affected_resources(self, site:str, function:str):
+        '''
+            Handles affected resource tracing for certain special cases in CLB tiles
+                Arguments: strings of the tile, site, and function of the bit
+                Returns: list of affected resources
+        '''
+
+        affected_rsrcs = set()
+        site_inst = self.query.getSiteInst(site)
+
+        # Define constants for the three edge case types to handle
+        ROUTING_BELS = ['CLKINV', 'NOCLKINV', 'CEUSEDMUX', 'SRUSEDMUX']
+        FF_CONTROL = ['FFSYNC', 'LATCH']
+        LUTRAM_CONTROL = ['WA7USED', 'WA8USED']
+
+        # Resource tracing for the routing bels
+        if function in ROUTING_BELS:
+            # Assign a routing bel based on the function
+            if function == 'NOCLKINV':
+                routing_bel = 'CLKINV'
+            else:
+                routing_bel = function
+
+            bel_pip = site_inst.getUsedSitePIP(routing_bel)
+            # Verify that this is a used routing bel
+            if bel_pip:
+                # Get forward cells from this bel
+                output_bel_pin = bel_pip.getOutputPin()
+                affected_rsrcs, _ = self.trace_cells(output_bel_pin, site_inst, affected_rsrcs, set())
+
+        # Resource fetching for flip-flop control bits
+        elif function in FF_CONTROL:
+            # Get all resources mapped to flip-flops
+            ff_cells = [cell for cell in site_inst.getCells() if 'FF' in cell.getBEL().toString()]
+            affected_rsrcs = {str(cell.getName()) for cell in ff_cells}
+        
+        # Resource fetching for LUTRAM control bits
+        elif function in LUTRAM_CONTROL:
+            # Get all resources mapped to LUTRAMs
+            lut_cells = [cell for cell in site_inst.getCells() if 'LUT' in cell.getBEL().toString()]
+            affected_rsrcs = {str(cell.getName()) for cell in lut_cells}
+
+        # Unrecognized case
+        else:
+            print(f'Unrecognized CLB bit function: {function}')
+
+        return list(affected_rsrcs)
+            
 
     ##################################
     #   find_fault_bits.py Helpers   #
