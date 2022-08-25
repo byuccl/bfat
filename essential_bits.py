@@ -139,27 +139,31 @@ def write_bit_list(essential_bits:list, num_bits:int, ebd_file:str):
     with open(fault_bits_path, 'w') as bits_f:
         bits_f.write(fault_bits_json)
 
+##################################################
+#                 Main Function                  #
+##################################################
 
-def main():
+def main(args):
     '''
-        Main function: Creates a fault bit list based on the bits in the provided .ebd file
+        Main function: Creates a non-deterministic, variable-length fault bit list
+        based on the bits in the provided .ebd file.
     '''
 
     # Gathers all bits from the .ebd file
-    essential_bits = parse_ebd_file(ARGS.ebd_file)
+    essential_bits = parse_ebd_file(args.ebd_file)
 
     # Write the specified number of bits to a .json file
-    write_bit_list(essential_bits, ARGS.num_bits, ARGS.ebd_file)  
+    write_bit_list(essential_bits, args.num_bits, args.ebd_file)  
 
 
 if __name__ == '__main__':
     import argparse
 
-    PARSER = argparse.ArgumentParser(description='Parses in an essential bits file (.ebd) '
+    parser = argparse.ArgumentParser(description='Parses in an essential bits file (.ebd) '
                                     + 'and populates a fault bit list with bits from the file')
-    PARSER.add_argument('ebd_file', help='Essential bits file from Vivado')
-    PARSER.add_argument('num_bits', type=int, help='The number of randomly selected bits from '
+    parser.add_argument('ebd_file', help='Essential bits file from Vivado')
+    parser.add_argument('num_bits', type=int, help='The number of randomly selected bits from '
                         + 'the file to include in the fault bit list')
-    ARGS = PARSER.parse_args()
+    args = parser.parse_args()
 
-    main()
+    main(args)

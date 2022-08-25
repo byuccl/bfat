@@ -42,7 +42,7 @@
         - output file (.json) in the working directory that contains the fault bits
 '''
 
-from bfat import get_tile_type_name, debug_print
+from bfat import get_tile_type_name
 from bitread import get_high_bits, get_frame_list
 from lib.design_query import DesignQuery, VivadoQuery
 from lib.file_processing import parse_tilegrid
@@ -190,7 +190,6 @@ def get_bit_for_open(design:DesignQuery, tilegrid_info:dict, used_INT_tiles:set,
     bitstream_addr = bit_bitstream_addr(tile_bit_addr, tilegrid_info)
 
     return [bitstream_addr[4:].replace('_', ' ')]
-
 
 # TODO: Get all tiles with at least two nets?
 def get_bits_for_short(design:DesignQuery, tilegrid_info:dict, INT_tiles:set, design_bits:list, part_name:str, uc_node:bool):
@@ -407,7 +406,7 @@ def get_errorless_bits(design:DesignQuery, tilegrid_info:dict, used_INT_tiles:se
     return [CLB_bitstream_addr[4:].replace('_', ' '), INT_bitstream_addr[4:].replace('_', ' ')]
 
 
-def find_fault_bits(bitstream:str, dcp:str, run_bfat:bool, debug:bool):
+def find_fault_bits(bitstream:str, dcp:str, run_bfat:bool, rpd:bool):
     '''
         Generates a list of example fault bits for the given design
             Arguments: Bitstream for design, Vivado checkpoint of implemented design,
@@ -419,46 +418,44 @@ def find_fault_bits(bitstream:str, dcp:str, run_bfat:bool, debug:bool):
 
     # Get the high bits in the bitstream and the part name
     design_bits = get_high_bits(bitstream)
-    debug_print(f'Parsed bitstream file:\t\t\t{round(time.perf_counter()-t_start, 2)} sec', debug)
+    print(f'Parsed bitstream file:\t\t\t{round(time.perf_counter()-t_start, 2)} sec')
 
     # Create data structure of the design
-    if ARGS.rapidwright:
+    if rpd:
         from lib.rpd_query import RpdQuery
         design_query = RpdQuery(dcp)
     else:
         design_query = VivadoQuery(dcp)
     part_name = design_query.part
-    debug_print(f'Created design query:\t\t\t{round(time.perf_counter()-t_start, 2)} sec', debug)
+    print(f'Created design query:\t\t\t{round(time.perf_counter()-t_start, 2)} sec')
 
     # Get all used INT tiles
     used_INT_tiles = design_query.get_used_INT_tiles()
-    debug_print(f'Retrieved used INT tiles:\t\t{round(time.perf_counter()-t_start, 2)} sec', debug)
+    print(f'Retrieved used INT tiles:\t\t{round(time.perf_counter()-t_start, 2)} sec')
 
     # Get the tilegrid information for the part
     tilegrid_info = parse_tilegrid(part_name)
-    debug_print(f'Parsed tilegrid information:\t\t{round(time.perf_counter()-t_start, 2)} sec', debug)
-
+    print(f'Parsed tilegrid information:\t\t{round(time.perf_counter()-t_start, 2)} sec')
 
 
     # Retrieve the fault bit groups for each of the test cases
     LUT_bit_group = get_bit_in_LUT(design_query, tilegrid_info, part_name)
-    debug_print(f'Generated LUT bit group:\t\t{round(time.perf_counter()-t_start, 2)} sec', debug)
+    print(f'Generated LUT bit group:\t\t{round(time.perf_counter()-t_start, 2)} sec')
 
     open_bit_group = get_bit_for_open(design_query, tilegrid_info, used_INT_tiles, part_name)
-    debug_print(f'Generated net open bit group:\t\t{round(time.perf_counter()-t_start, 2)} sec', debug)
+    print(f'Generated net open bit group:\t\t{round(time.perf_counter()-t_start, 2)} sec')
 
     short_bit_group = get_bits_for_short(design_query, tilegrid_info, used_INT_tiles, design_bits, part_name, False)
-    debug_print(f'Generated net short bit group:\t\t{round(time.perf_counter()-t_start, 2)} sec', debug)
+    print(f'Generated net short bit group:\t\t{round(time.perf_counter()-t_start, 2)} sec')
 
     short_uc_node_bit_group = get_bits_for_short(design_query, tilegrid_info, used_INT_tiles, design_bits, part_name, True)
-    debug_print(f'Generated net and UC node bit group:\t{round(time.perf_counter()-t_start, 2)} sec', debug)
+    print(f'Generated net and UC node bit group:\t{round(time.perf_counter()-t_start, 2)} sec')
 
     undef_bit_group = get_undefined_bit(part_name)
-    debug_print(f'Generated undefined bit group:\t\t{round(time.perf_counter()-t_start, 2)} sec', debug)
+    print(f'Generated undefined bit group:\t\t{round(time.perf_counter()-t_start, 2)} sec')
 
     errorless_bit_group = get_errorless_bits(design_query, tilegrid_info, used_INT_tiles, part_name)
-    debug_print(f'Generated errorless bit group:\t\t{round(time.perf_counter()-t_start, 2)} sec', debug)
-
+    print(f'Generated errorless bit group:\t\t{round(time.perf_counter()-t_start, 2)} sec')
 
 
     # Compile all generated bit groups into one list
@@ -481,7 +478,7 @@ def find_fault_bits(bitstream:str, dcp:str, run_bfat:bool, debug:bool):
     # Open file to write fault bits to
     with open(fault_bits_file_path, 'w') as faults_file:
         faults_file.write(bit_groups_json)
-    debug_print(f'Fault bit list file created:\t\t{round(time.perf_counter()-t_start, 2)} sec', debug)
+    print(f'Fault bit list file created:\t\t{round(time.perf_counter()-t_start, 2)} sec')
 
     # If run flag was set, run the generated files through BFAT
     if run_bfat:
@@ -504,22 +501,32 @@ def find_fault_bits(bitstream:str, dcp:str, run_bfat:bool, debug:bool):
         else:
             print(cmd_run.stdout.strip())
         
-        debug_print(f'Ran BFAT:\t\t{round(time.perf_counter()-t_start, 2)} sec', debug)
+        print(f'Ran BFAT:\t\t{round(time.perf_counter()-t_start, 2)} sec')
 
+##################################################
+#                 Main Function                  #
+##################################################
+
+def main(args):
+    '''
+        Main Function: Generates a non-deterministic sample bit list demonstrating all the
+        different types of possible failures that could be caused in the provided design.
+    '''
+
+    find_fault_bits(args.bitstream, args.dcp_file, args.run, args.rapidwright)
 
 if __name__ == '__main__':
     import argparse
 
     # Create argparser and parse argument variables
-    PARSER = argparse.ArgumentParser(description='Generates a fault bit list for the given design')
-    PARSER.add_argument('bitstream', help='Bitstream file of the design for which '
+    parser = argparse.ArgumentParser(description='Generates a fault bit list for the given design')
+    parser.add_argument('bitstream', help='Bitstream file of the design for which '
                         + 'fault bits will be generated')
-    PARSER.add_argument('dcp_file', help='Vivado checkpoint of the implemented design')
-    PARSER.add_argument('-r', '--run', action='store_true', default='', help='Run the given design '
+    parser.add_argument('dcp_file', help='Vivado checkpoint of the implemented design')
+    parser.add_argument('-r', '--run', action='store_true', default='', help='Run the given design '
                         + 'files and generated fault bits through BFAT')
-    PARSER.add_argument('-rpd', '--rapidwright', action='store_true',
+    parser.add_argument('-rpd', '--rapidwright', action='store_true',
                         help='Flag to use Rapidwright to read design data')
-    PARSER.add_argument('-d', '--debug', action='store_true', default='', help='Give timing information')
-    ARGS = PARSER.parse_args()
+    args = parser.parse_args()
 
-    find_fault_bits(ARGS.bitstream, ARGS.dcp_file, ARGS.run, ARGS.debug)
+    main(args)

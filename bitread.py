@@ -101,7 +101,6 @@ def read_bytes_ascii(bitfile):
     
     return field_str
 
-
 ##################################################
 #      Organize main function into sections      #
 ##################################################
@@ -294,8 +293,6 @@ def parse_config_packet(bitfile, frames:list):
 
     return bits    
 
-
-
 ##################################################
 #                 Main Function                  #
 ##################################################
@@ -326,18 +323,26 @@ def get_high_bits(bitstream:str):
 
     return bits
 
+def main(args):
+    '''
+        Main function: Creates a readable list of the high bits in the provided bistream
+        and writes it to a corresponding .bits file.
+    '''
+
+    # Run bitread to generate a list of the design bits
+    bits = get_high_bits(args.bitstream)
+
+    # Output the list to a .bits file if running the script by itself
+    with open(f'{args.bitstream}s', "w") as bits_file:
+        for bit in bits:
+            bits_file.write(bit + "\n")
+
 if __name__ == "__main__":
     import argparse
 
     # Create argument parser for running bitread by itself
-    PARSER = argparse.ArgumentParser(description="Remake of prjxray bitread tool in python for BFAT project")
-    PARSER.add_argument('bitstream', help='bitstream file to be converted to a .bits file')
-    ARGS = PARSER.parse_args()
+    parser = argparse.ArgumentParser(description="Remake of prjxray bitread tool in python for BFAT project")
+    parser.add_argument('bitstream', help='bitstream file to be converted to a .bits file')
+    args = parser.parse_args()
 
-    # Run bitread to generate a list of the design bits
-    bits = get_high_bits(ARGS.bitstream)
-
-    # Output the list to a .bits file if running the script by itself
-    with open(f'{ARGS.bitstream}s', "w") as bits_file:
-        for bit in bits:
-            bits_file.write(bit + "\n")
+    main(args)
