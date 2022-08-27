@@ -1,0 +1,59 @@
+{
+    "Bit Group 1": {
+        "Significant": {
+            "num_bits": 1,
+            "tile": "CLB",
+            "resource": "EXISTS",
+            "function": "EXISTS",
+            "design_name": "EXISTS",
+            "fault": "bit altered"
+        }
+    },
+    "Bit Group 2": {
+        "Significant": {
+            "num_bits": 1,
+            "tile": "INT",
+            "resource": "EXISTS",
+            "function": "EXISTS",
+            "fault": "Opens created"
+        }
+    },
+    "Bit Group 3": {
+        "Significant": {
+            "num_bits": 1,
+            "tile": "INT",
+            "resource": "EXISTS",
+            "function": "EXISTS",
+            "fault": "Shorts formed, !Unconnected Wire"
+        }
+    },
+    "Bit Group 4": {
+        "Significant": {
+            "num_bits": 1,
+            "tile": "INT",
+            "resource": "EXISTS",
+            "function": "EXISTS",
+            "fault": "Shorts formed, Unconnected Wire"
+        }
+    },
+    "Bit Group 5": {
+        "Undefined": {
+            "num_bits": 1
+        }
+    },
+    "Bit Group 6": {
+        "Errorless": {
+            "num_bits": 2,
+            "tile": [
+                "CLB",
+                "INT"
+            ],
+            "resource": "EXISTS",
+            "function": "EXISTS",
+            "design_name": [
+                "!EXISTS",
+                "EXISTS"
+            ]
+        }
+    }
+}
