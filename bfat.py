@@ -30,17 +30,14 @@
 
     Optional flags:
         - bits_file [-bf]: Flag to parse in a .bits file instead of a bitstream for the design
-        - debug [-d]: Flag for printing debug statements included in code to standard out
         - rapidwright [-rpd]: Flag to use Rapidwright implementation of design querying
         - out_file [-of]: Path of output file. Default is <design_name>_fault_report.txt
-        - json [-j]: File path to an additional json file storing the fault report information
 
     Returns:
         - output file (.txt) that reports the location and cause of any determinable fault bits
 '''
 
 import time
-import json
 from io import TextIOWrapper
 from lib.tile import Tile
 from lib.file_processing import parse_tilegrid, parse_fault_bits, parse_design_bits
@@ -302,33 +299,10 @@ def print_fault_report(outfile:str, fault_report:dict):
     return statistics
 
 ##################################################
-#         Helper and Debugging Functions         #
-##################################################
-
-def change_bit(tiles:dict, curr_tile:str, bit:str, value:int):
-    '''
-        Helper function that changes the value of a single bit from a single tile
-            Arguments: Dict of all tiles in the design, strings of the tile, the bit's
-                       address, and the int value to assign it
-    '''
-
-    tiles[curr_tile].change_bit(bit, value)
-
-def debug_print(message:str, debug_flag:bool):
-    '''
-        Wrapper/helper function to print the debug statement only if the debug
-        flag has been raised.
-            Arguments: String of the message to be printed and bool debug flag
-    '''
-
-    if debug_flag:
-        print(message)
-
-##################################################
 #                 Main Function                  #
 ##################################################
 
-def main():
+def main(args):
     '''
         Main function: Creates a report of the effects the passed in fault bits have
         on the given design.
@@ -337,73 +311,62 @@ def main():
     t_start = time.perf_counter()
 
     # Parse in all high bits from the bitstream or from a .bits file [base_frame, word, bit]
-    if ARGS.bits_file:
-        design_bits = parse_design_bits(ARGS.bitstream)
+    if args.bits_file:
+        design_bits = parse_design_bits(args.bitstream)
     else:
-        design_bits = get_high_bits(ARGS.bitstream)
-    debug_print(f'Design Bits Read In:\t\t{round(time.perf_counter()-t_start, 2)} sec', ARGS.debug)
+        design_bits = get_high_bits(args.bitstream)
+    print(f'Design Bits Read In:\t\t{round(time.perf_counter()-t_start, 2)} sec')
 
     # Create a design query to get design info from the dcp file
-    if ARGS.rapidwright:
+    if args.rapidwright:
         from lib.rpd_query import RpdQuery
-        design = RpdQuery(ARGS.dcp_file)
+        design = RpdQuery(args.dcp_file)
     else:
-        design = VivadoQuery(ARGS.dcp_file)
-    debug_print(f'Design Query Created:\t\t{round(time.perf_counter()-t_start, 2)} sec', ARGS.debug)
+        design = VivadoQuery(args.dcp_file)
+    print(f'Design Query Created:\t\t{round(time.perf_counter()-t_start, 2)} sec')
 
     # Parse in the corresponding part's tilegrid.json file
     tile_info = parse_tilegrid(design.part)
     # Parse in the fault bit information
-    bit_groups = parse_fault_bits(ARGS.fault_bits)
-    debug_print(f'Input Files Parsed:\t\t{round(time.perf_counter()-t_start, 2)} sec', ARGS.debug)
+    bit_groups = parse_fault_bits(args.fault_bits)
+    print(f'Input Files Parsed:\t\t{round(time.perf_counter()-t_start, 2)} sec')
 
     # Generate images of tiles from the part's tilegrid
     tile_imgs = gen_tile_images(tile_info, design.part)
-    debug_print(f'Tile Images Generated:\t\t{round(time.perf_counter()-t_start, 2)} sec', ARGS.debug)
+    print(f'Tile Images Generated:\t\t{round(time.perf_counter()-t_start, 2)} sec')
 
     # Define and evaluate each fault bit and generate data structure for a report
     fault_report = def_fault_bits(bit_groups, tile_info, tile_imgs, design_bits, design)
-    debug_print(f'Fault Bits Analyzed:\t\t{round(time.perf_counter()-t_start, 2)} sec', ARGS.debug)
-
-    # Write fault report data structure out to provided json file
-    if ARGS.json:
-        # Open output json file and write to it
-        with open(ARGS.json, 'w') as jo_f:
-            json.dump(fault_report, jo_f, indent = 4)
-
-        debug_print(f'JSON File Written:\t\t{round(time.perf_counter()-t_start, 2)} sec', ARGS.debug)
+    print(f'Fault Bits Analyzed:\t\t{round(time.perf_counter()-t_start, 2)} sec')
 
     # Create and output report based on analysis of fault bits
-    outfile = get_outfile_name(ARGS.out_file, ARGS.fault_bits)
+    outfile = get_outfile_name(args.out_file, args.fault_bits)
     statistics = print_fault_report(outfile, fault_report)
-    debug_print(f'Fault Report Printed:\t\t{round(time.perf_counter()-t_start, 2)} sec', ARGS.debug)
+    print(f'Fault Report Printed:\t\t{round(time.perf_counter()-t_start, 2)} sec')
 
     # Calculate and print fault bit statistics
-    print_stat_footer(outfile, ARGS.dcp_file, statistics, round(time.perf_counter()-t_start, 2))
-    debug_print(f'Statistical Footer Printed:\t{round(time.perf_counter()-t_start, 2)} sec', ARGS.debug)
+    print_stat_footer(outfile, args.dcp_file, statistics, round(time.perf_counter()-t_start, 2))
+    print(f'Statistical Footer Printed:\t{round(time.perf_counter()-t_start, 2)} sec')
 
 if __name__ == '__main__':
     import argparse
     # Create Argument Parser to take in commandline arguments
-    PARSER = argparse.ArgumentParser(description='Analyzes a design and evaluates provided fault '
+    parser = argparse.ArgumentParser(description='Analyzes a design and evaluates provided fault '
                                                 + 'bits to report the identities and the effects '
                                                 + 'of the flipped values of each fault bit on '
                                                 + 'the design.')
     # Input Files
-    PARSER.add_argument("bitstream", help='Bitstream file of the design to be analyzed')
-    PARSER.add_argument('dcp_file', help='Vivado checkpoint file of the implemented design')
-    PARSER.add_argument('fault_bits', help='Json file listing bits of interest')
+    parser.add_argument("bitstream", help='Bitstream file of the design to be analyzed')
+    parser.add_argument('dcp_file', help='Vivado checkpoint file of the implemented design')
+    parser.add_argument('fault_bits', help='Json file listing bits of interest')
     # Feature Flags
-    PARSER.add_argument('-bf', '--bits_file', action='store_true', default='',
+    parser.add_argument('-bf', '--bits_file', action='store_true', default='',
                         help='Specify a .bits text file of all high bits instead of a bitstream')
-    PARSER.add_argument('-d', '--debug', action='store_true', help='Flag debug statements')
-    PARSER.add_argument('-rpd', '--rapidwright', action='store_true',
+    parser.add_argument('-rpd', '--rapidwright', action='store_true',
                         help='Flag to use Rapidwright to read design data')
-    # Optional Output File Paths
-    PARSER.add_argument('-of', '--out_file', default='',
+    # Optional Output File Path
+    parser.add_argument('-of', '--out_file', default='',
                         help='File path where the output is to be written.')
-    PARSER.add_argument('-j', '--json', default='',
-                        help='File path to write fault report data as additional json file')
-    ARGS = PARSER.parse_args()
+    args = parser.parse_args()
 
-    main()
+    main(args)
