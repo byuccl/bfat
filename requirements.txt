@@ -1,1 +1,2 @@
 rapidwright==2022.1.1
+pytest
