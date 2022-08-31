@@ -169,30 +169,31 @@ def print_analysis(net_sens_bits:dict, outfile:str):
             o_f.write(f'Total config bits: {len(all_net_config_bits)}\n')
             o_f.write('\n-----------------------------------\n\n')
 
-def main():
+def main(args):
     '''
-        Main function
+        Main function: Writes a sensitivity report for all the nets given
+        for a specific design with all related pips and routing bits
     '''
 
     # Create design query object
-    if ARGS.rapidwright:
+    if args.rapidwright:
         from lib.rpd_query import RpdQuery
-        design = RpdQuery(ARGS.dcp_file)
+        design = RpdQuery(args.dcp_file)
     else:
         from lib.design_query import VivadoQuery
-        design = VivadoQuery(ARGS.dcp_file)
+        design = VivadoQuery(args.dcp_file)
 
     # Get part tilegrid information
     tilegrid = parse_tilegrid(design.part)
 
     # Parse in the nets to analyze
-    nets = parse_nets_file(ARGS.nets)
+    nets = parse_nets_file(args.nets)
 
     # Retrieve all relevant pips, routing muxes, and configuration bits for each net
     net_sens_bits = analyze_nets(nets, design, tilegrid)
 
     # Get the output file name
-    outfile = get_outfile_name(ARGS.out_file, ARGS.nets)
+    outfile = get_outfile_name(args.out_file, args.nets)
 
     # Print report of the found information
     print_analysis(net_sens_bits, outfile)
@@ -200,12 +201,12 @@ def main():
 if __name__ == '__main__':
     import argparse
     # Create Argument Parser to take in command line arguments
-    PARSER = argparse.ArgumentParser(description="Analyzes the given nets in a design and "
+    parser = argparse.ArgumentParser(description="Analyzes the given nets in a design and "
                                                 + "reports all of the nets' sensitive bits")
-    PARSER.add_argument('dcp_file', help='Vivado checkpoint file of the implemented design')
-    PARSER.add_argument('nets', help='Text file containing the names of the net(s) to analyze')
-    PARSER.add_argument('-rpd', '--rapidwright', action='store_true', help='Flag to use Rapidwright to read design data')
-    PARSER.add_argument('-of', '--out_file', default='', help='File path where the output is to be written.')
-    ARGS = PARSER.parse_args()
+    parser.add_argument('dcp_file', help='Vivado checkpoint file of the implemented design')
+    parser.add_argument('nets', help='Text file containing the names of the net(s) to analyze')
+    parser.add_argument('-rpd', '--rapidwright', action='store_true', help='Flag to use Rapidwright to read design data')
+    parser.add_argument('-of', '--out_file', default='', help='File path where the output is to be written.')
+    args = parser.parse_args()
 
-    main()
+    main(args)
