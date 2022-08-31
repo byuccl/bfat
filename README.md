@@ -26,6 +26,10 @@ Utility scripts to generate fault bit lists for user designs (see [here](docs/sa
 - `ll_sample_bits.py`: python tool that a user can run on a generated logic location (.ll) file to generate a sample fault bit list
 - `essential_bits.py`: python tool that a user can run on a generated essential bits (.ebd) file to generate a sample fault bit list
 
+Other utility scripts:
+
+- `net_analysis.py`: python tool which performs a sensitivity analysis for any given nets in a user's design (see [here](docs/net_analysis.md) for info)
+
 BFAT requires the use of Vivado or Rapidwright to read dcp files in order to retrieve information about the design being analyzed. BFAT runs using a sourced version of Vivado by default, but can be run using Rapidwright with the `-rpd` flag.
 
 BFAT utilizes the ProjectXray database in its design analysis and clones the database repo from Github during setup.

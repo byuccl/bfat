@@ -70,3 +70,7 @@ python3 essential_bits.py <ebd_file> <num_bits>
 ```
 
 The script will generate a fault bit list containing a random selection of the number of bits specified in the command-line interface.
+
+---
+
+>**Note:** All of these scripts can be run from any directory as long as the correct path to the script is given in the command

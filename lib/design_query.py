@@ -28,6 +28,7 @@ from abc import ABCMeta, abstractmethod
 from subprocess import Popen, PIPE, STDOUT
 from threading import Thread
 from queue import Queue, Empty
+import re
 
 ###################################
 #  VivadoQuery Outstream Classes  #
