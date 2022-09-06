@@ -359,6 +359,14 @@ class DesignQuery(object):
     def get_INT_tiles(self):
         pass
 
+    ########################################
+    #   Abstract net_analysis.py Helpers   #
+    ########################################
+
+    @abstractmethod
+    def get_all_nets(self):
+        pass
+
 class VivadoQuery(DesignQuery):
     '''
         Design query through running vivado with an open subprocess pipe
@@ -884,3 +892,17 @@ class VivadoQuery(DesignQuery):
         tiles = {tile for tile in tiles if 'INTERFACE' not in tile}
 
         return tiles
+
+    
+    ###############################
+    #   net_analysis.py Helpers   #
+    ###############################
+
+    def get_all_nets(self):
+        '''
+            Retrieves all nets in the design
+                Returns: list of all net names
+        '''
+
+        nets = self.run_command('getNets', '')
+        return nets
