@@ -48,6 +48,12 @@ from lib.file_processing import parse_tilegrid
 from lib.design_query import DesignQuery
 from lib.bit_definitions import bit_bitstream_addr
 from tqdm import tqdm
+from statistics import mean, stdev, median, quantiles
+import pickle
+
+############################################
+#           Data Storage Classes           #
+############################################
 
 class AnalyzedNet:
     '''
@@ -95,7 +101,6 @@ class AnalyzedNet:
             if hasattr(pip_info, 'pip_name'):
                 self.pips.append(pip_info)
                 self.num_bits += len(pip_info.row_bits) + len(pip_info.col_bits)
-
 
 class PipInfo:
     '''
@@ -153,6 +158,145 @@ class PipInfo:
         self.row_bits = mux_conv_bits['Row Bits']
         self.col_bits = mux_conv_bits['Column Bits']
 
+############################################
+# Functions for dealing with .pickle files #
+############################################
+
+def unserialize_structure(pickled_file:str):
+    '''
+        Unserializes a file containing the data from a previous run of this tool
+            Arguments: string of the path to the pickled file
+            Returns: list of analyzed nets
+    '''
+
+    # Open the file and unserialize the data
+    with open(pickled_file, 'rb') as p_f:
+        analyzed_nets = pickle.load(p_f)
+
+    does_not_match = False
+    # Check that the resulting data structure matches the expected format
+    if not isinstance(analyzed_nets, list):
+        does_not_match = True
+    elif len(analyzed_nets) > 0 and not isinstance(analyzed_nets[0], AnalyzedNet):
+        does_not_match = True
+
+    # Throw exception if the data structure does not match
+    if does_not_match:
+        raise Exception('Input serialized data structure does not match expected format')
+
+    return analyzed_nets
+
+def serialize_structure(analyzed_nets:list, report_name:str):
+    '''
+        Serializes the final data structure and exports it to a file with
+        a generated name
+            Arguments: list of analyzed nets, string of report's filename
+            Returns: Output .pickle file of the analysis
+    '''
+
+    # Change file extension to .pickle
+    if len(report_name.split('.')) > 1:
+        report_name = '.'.join(report_name.split('.')[:-1])
+    outfile_name = report_name + '.pickle'
+
+    # Open the file to write the data to
+    with open(outfile_name, 'wb') as o_f:
+        pickle.dump(analyzed_nets, o_f)
+
+############################################
+#          Feature Flag Functions          #
+############################################
+
+def graph_output(nets:list):
+    '''
+        Plots a histogram showing the frequency at which different nets exhibit
+        higher/lower numbers of used routing bits:
+            Arguments: list of analyzed nets, string of the report's filename
+            Returns: GUI of the plot
+    '''
+
+    import matplotlib.pyplot as plt
+
+    N_BINS = 50
+
+    # Extract the number of related bits from each net's object
+    bit_freqs = [net.num_bits for net in nets if net.num_bits < 1000]
+
+    # Create the plot
+    plt.hist(bit_freqs, density=False, bins=N_BINS)
+    plt.title('Net Routing Sensitivity Analysis')
+    plt.xlabel('Related bits per net')
+    plt.ylabel('Frequency')
+    plt.yscale('log')
+    plt.show()
+
+def remove_tmr_nets(nets:list, tmr_suffix:str):
+    '''
+        Filters out from a list of nets all triplicated nets
+            Arguments: list of either AnalyzedNet objects or strings of net names
+            Returns: list of non-triplicated AnalyzedNet objects or net names
+    '''
+
+    non_tmr_nets = []
+
+    # Set of already checked net names (for efficiency)
+    checked_nets = set()
+
+    # Verify that the list of nets is either of AnalyzedNets or strings
+    if all([isinstance(net_obj, AnalyzedNet) for net_obj in nets]):
+        net_names = [net.name for net in nets]
+    elif all([isinstance(net_obj, str) for net_obj in nets]):
+        net_names = nets
+
+    # Iterate through all nets in the list
+    for net_obj in tqdm(nets):
+        # If the given data structure is an AnalyzedNet object, use the name member
+        if isinstance(net_obj, AnalyzedNet):
+            net_name = net_obj.name
+        elif isinstance(net_obj, str):
+            net_name = net_obj
+
+        # Skip net if it has already been checked
+        if net_name in checked_nets:
+            continue
+        checked_nets.add(net_name)
+
+        # Check if the TMR suffix is in the net name 
+        if tmr_suffix not in net_name:
+            non_tmr_nets.append(net_obj)
+            continue
+
+        # Find the index of the TMR copy number in the string
+        tmr_num_index = net_name.find(tmr_suffix) + 1 + len(tmr_suffix) # +1 is to account for '_'
+        tmr_num = net_name[tmr_num_index]
+
+        # Create list of TMR numbers to check
+        tmr_nums_to_check = ['0', '1', '2']
+        tmr_nums_to_check.remove(tmr_num)
+
+        num_copies = 0
+        # Check that two other copies of this net exist in the list of nets
+        for curr_tmr_num in tmr_nums_to_check:
+            # Create a copy of the net name with the changed TMR number
+            net_copy = list(net_name)
+            net_copy[int(tmr_num_index)] = curr_tmr_num
+            net_copy = ''.join(net_copy)
+
+            # Set flag if the copy exists
+            if net_copy in net_names:
+                num_copies += 1
+            checked_nets.add(net_name)
+
+        # This is a non-TMR net if less than 2 copies exist
+        if num_copies < 2:
+            non_tmr_nets.append(net_obj)
+            
+    return non_tmr_nets
+
+############################################
+#             File I/O Helpers             #
+############################################
+
 def parse_nets_file(nets_file:str):
     '''
         Parses a text file containing all of the nets to analyze
@@ -175,11 +319,12 @@ def parse_nets_file(nets_file:str):
 
     return nets
 
-def get_outfile_name(outname_arg:str, nets_path:str):
+def get_outfile_name(outname_arg:str, nets_path:str, tmr_nets_ignored:bool):
     '''
         Generates a name for the output fault report file based on the arguments passed
         in by the user and net list file used
-            Arguments: Strings of the file paths to the output file and the net list file
+            Arguments: Strings of the file paths to the output file and the net list file,
+                       flag telling whether TMR nets were ignored or net
             Returns: String of the appropriate output file name
     '''
 
@@ -191,13 +336,23 @@ def get_outfile_name(outname_arg:str, nets_path:str):
 
     # If --all_nets flag was used (no nets file), generate entirely new file name
     elif not nets_path:
-        outfile_name = 'all_nets_analysis.txt'
+        # If TMR nets were ignored, note that in the output file name
+        if tmr_nets_ignored:
+            outfile_name = 'all_nonTMR_nets_analysis.txt'
+        else:
+            outfile_name = 'all_nets_analysis.txt'
 
     # Otherwise, generate name based on input nets file name
     else:
+        # Obtain extensionless filename of the nets file
         nets_path = nets_path.strip().split('/')
         nets_file_name, _ = nets_path[-1].split('.')
-        outfile_name = f'{nets_file_name}_analysis.txt'
+
+        # If TMR nets were ignored, note that in the output file name
+        if tmr_nets_ignored:
+            outfile_name = f'{nets_file_name}_nonTMR_analysis.txt'
+        else:
+            outfile_name = f'{nets_file_name}_analysis.txt'
 
     return outfile_name
 
@@ -224,43 +379,20 @@ def print_analysis(analyzed_nets:list, outfile:str):
             o_f.write(f'Total config bits: {net.num_bits}\n')
             o_f.write('\n-----------------------------------\n\n')
 
-def serialize_structure(analyzed_nets:list, report_name:str):
-    '''
-        Serializes the final data structure and exports it to a file with
-        a generated name
-            Arguments: list of analyzed nets, string of outfile name
-    '''
+        # Extract the number of related bits from each net's object
+        bit_freqs = [net.num_bits for net in analyzed_nets]
 
-    import pickle
+        # Gather and print some summary statistics
+        o_f.write('Summary Statistics:\n')
+        o_f.write(f'\tNumber of Nets Analyzed: {len(bit_freqs)}\n')
+        o_f.write(f'\tMean of Bits Per Net: {mean(bit_freqs)}\n')
+        o_f.write(f'\tStdDev of Bits Per Net: {stdev(bit_freqs)}\n')
+        o_f.write(f'\tMedian of Bits Per Net: {median(bit_freqs)}\n')
+        o_f.write(f'\tDeciles of Bits Per Net: {quantiles(bit_freqs, n=10)}')
 
-    # Strip file extension from the report name
-    if len(report_name.split('.')) > 1:
-        report_name = '.'.join(report_name.split('.')[:-1])
-    outfile_name = report_name + '.pickle'
-
-    # Open the file to write the data to
-    with open(outfile_name, 'wb') as o_f:
-        pickle.dump(analyzed_nets, o_f)
-
-def graph_output(nets:list):
-    '''
-        Plots a histogram showing the frequency at which different nets exhibit
-        higher/lower numbers of used routing bits:
-            Arguments: list of analyzed nets
-    '''
-
-    import matplotlib.pyplot as plt
-
-    N_BINS = 25
-
-    # Extract the number of related bits from each net's object
-    bit_freqs = [net.num_bits for net in nets]
-
-    # Create the plot
-    plt.hist(bit_freqs, density=False, bins=N_BINS)
-    plt.xlabel('Related bits per net')
-    plt.ylabel('Frequency')
-    plt.show()
+############################################
+#               Main Function              #
+############################################
 
 def main(args):
     '''
@@ -268,38 +400,55 @@ def main(args):
         for a specific design with all related pips and routing bits
     '''
 
-    print('Building design query...')
+    # Unserialize data structure if flag is set
+    if args.pickled_input:
+        print('Unserializing data structure...')
+        analyzed_nets = unserialize_structure(args.nets)
 
-    # Create design query object
-    if args.rapidwright:
-        from lib.rpd_query import RpdQuery
-        design = RpdQuery(args.dcp_file)
+        # Remove all triplicated nets from the data structure if flag is set
+        if args.non_tmr:
+            print('Removing triplicated nets...')
+            analyzed_nets[:] = remove_tmr_nets(analyzed_nets, args.non_tmr)
+
+    # Standard net analysis flow
     else:
-        from lib.design_query import VivadoQuery
-        design = VivadoQuery(args.dcp_file)
+        print('Building design query...')
 
-    # Get part tilegrid information
-    print('Parsing part tilegrid information from database...')
-    tilegrid = parse_tilegrid(design.part)
+        # Create design query object
+        if args.rapidwright:
+            from lib.rpd_query import RpdQuery
+            design = RpdQuery(args.dcp_file)
+        else:
+            from lib.design_query import VivadoQuery
+            design = VivadoQuery(args.dcp_file)
 
-    # Retrieve the nets to analyze
-    print('Retrieving nets...')
-    if args.all_nets:
-        nets = design.get_all_nets()
-    else:
-        nets = parse_nets_file(args.nets)
+        # Get part tilegrid information
+        print('Parsing part tilegrid information from database...')
+        tilegrid = parse_tilegrid(design.part)
 
-    print('Analyzing nets...')
-    analyzed_nets = []
+        # Retrieve the nets to analyze
+        print('Retrieving nets...')
+        if args.all_nets:
+            nets = design.get_all_nets()
+        else:
+            nets = parse_nets_file(args.nets)
 
-    # Analyze all nets (retrieve all relevant pips, routing muxes, and configuration bits)
-    for net in tqdm(nets):
-        analyzed_net = AnalyzedNet(net, design, tilegrid)
-        analyzed_nets.append(analyzed_net)
+        # Remove all triplicated nets from the list if flag is set
+        if args.non_tmr:
+            print('Removing triplicated nets...')
+            nets[:] = remove_tmr_nets(nets, args.non_tmr)
+
+        print('Analyzing nets...')
+        analyzed_nets = []
+
+        # Analyze all nets (retrieve all relevant pips, routing muxes, and configuration bits)
+        for net in tqdm(nets):
+            analyzed_net = AnalyzedNet(net, design, tilegrid)
+            analyzed_nets.append(analyzed_net)
 
     # Get the output file name
     print('Generating output file...')
-    outfile = get_outfile_name(args.out_file, args.nets)
+    outfile = get_outfile_name(args.out_file, args.nets, args.non_tmr != '')
 
     # Print report of the found information
     print_analysis(analyzed_nets, outfile)
@@ -329,11 +478,15 @@ if __name__ == '__main__':
     parser.add_argument('-a', '--all_nets', action='store_true',
                         help='Analyze the sensitivity of all nets in the design (this will take a while)')
     parser.add_argument('-rpd', '--rapidwright', action='store_true',
-                        help='Flag to use Rapidwright to read design data')
+                        help='Flag to use Rapidwright to read design data (unneeded if using --pickled_input')
     parser.add_argument('-g', '--graph', action='store_true',
-                        help='Plots a histogram of the frequency that the nets exhibit numbers of routing bits')
+                        help='Plots a histogram of the frequency that the nets exhibit numbers of routing bits.')
     parser.add_argument('-p', '--pickle', action='store_true',
                         help='Write the analysis data structure in a serialized format to a file')
+    parser.add_argument('-pi', '--pickled_input', action='store_true',
+                        help='Input a pickled data structure containing the contents of a previous run of this tool '
+                        'instead of a nets file')
+    parser.add_argument('-ntmr', '--non_tmr', default='', help='Ignore all triplicated nets with the given TMR suffix')
     # Optional Output File Path
     parser.add_argument('-of', '--out_file', default='', help='File path where the output is to be written.')
     args = parser.parse_args()
