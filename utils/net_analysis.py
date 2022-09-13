@@ -39,7 +39,7 @@ from bfat import get_tile_type_name
 from lib.tile import Tile
 from lib.file_processing import parse_tilegrid
 from lib.design_query import DesignQuery
-from lib.bit_definitions import bit_bitstream_addr
+from lib.define_bit import bit_bitstream_addr
 
 def parse_nets_file(nets_file:str):
     '''
