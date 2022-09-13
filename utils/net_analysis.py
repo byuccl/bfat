@@ -31,6 +31,8 @@
         - rapidwright [-rpd]: Flag to use Rapidwright implementation of design querying
         - graph [-g]: Flag to plot a histogram of the frequency of related bits to each net
         - pickle [-p]: Flag to pickle the output structure and save the serialized data to a file
+        - pickled_input [-pi]: Flag to use a previously generated .pickle file in place of a nets file
+        - non_tmr [-ntmr]: Filter out triplicated nets with the given TMR prefix
         - out_file [-of]: Path of output file. Default is <design_name>_fault_report.txt
 
     Returns:
