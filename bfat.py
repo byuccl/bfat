@@ -145,13 +145,13 @@ def gen_tcl_cmds(fault_info:list, outfile:TextIOWrapper):
             msg_nets_str = ' '.join(sorted(msg_nets))
 
             # Change net names for VCC and GND so they can be selected with the tcl command
-            msg_nets_str = msg_nets_str.replace("GLOBAL_LOGIC0", "GND_2")
-            msg_nets_str = msg_nets_str.replace("GLOBAL_LOGIC1", "VCC_2")
+            msg_nets_str = msg_nets_str.replace("GLOBAL_LOGIC0", "<const0>")
+            msg_nets_str = msg_nets_str.replace("GLOBAL_LOGIC1", "<const1>")
 
             # Remove "(initially connected)" from string"
             msg_nets_str = msg_nets_str.replace(' (initially connected)', '')
 
-            outfile.write(f'\t\tselect_objects [get_nets {{{msg_nets_str}}}]\n')
+            outfile.write(f'\t\tselect_objects [get_nets -hier {{{msg_nets_str}}}]\n')
 
     # Get the cells of the affected resources if there are any and add them
     # to the generated tcl command to select them in Vivado
@@ -214,10 +214,8 @@ def print_bit_group_section(section_name:str, section_bits, outfile:TextIOWrappe
                 outfile.write(f'\tResource Design Name: {dsgn_rsrc}\n')
 
                 # Change some net names in the fault message for consistency
-                fault_msg = fault_msg.replace('GND_2', 'GLOBAL_LOGIC0')
-                fault_msg = fault_msg.replace('GND_4', 'GLOBAL_LOGIC0')
-                fault_msg = fault_msg.replace('VCC_2', 'GLOBAL_LOGIC1')
-                fault_msg = fault_msg.replace('VCC_4', 'GLOBAL_LOGIC1')
+                fault_msg = fault_msg.replace('GLOBAL_LOGIC0', '<const0>')
+                fault_msg = fault_msg.replace('GLOBAL_LOGIC1', '<const1>')
 
                 outfile.write(f'\t{fault_msg}\n')
 

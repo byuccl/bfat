@@ -359,6 +359,14 @@ class DesignQuery(object):
     def get_INT_tiles(self):
         pass
 
+    ########################################
+    #   Abstract net_analysis.py Helpers   #
+    ########################################
+
+    @abstractmethod
+    def get_all_nets(self):
+        pass
+
 class VivadoQuery(DesignQuery):
     '''
         Design query through running vivado with an open subprocess pipe
@@ -539,17 +547,12 @@ class VivadoQuery(DesignQuery):
             Queries the design for all data related to GND and VCC nets
         '''
 
-        gl_nets = set()
+        # Query the design for one global logic (<const0>/<const1>) net of each type
+        for const_type in ['<const0>', '<const1>']:
+            nets_found = self.run_command('getNets', f'*{const_type}')
 
-        # Query the design for any global logic (GND/VCC) nets
-        for net_root in ['GND', 'VCC']:
-            nets_found = self.run_command('getNets', net_root)
-
-            # Add any global logic nets to the set
-            [gl_nets.add(net) for net in nets_found if '_' in net and net.split('_')[0] == net_root]
-
-        # Iterate through each net in the design
-        for net in gl_nets:
+            # Choose the net with the shortest name to query for in the design
+            net = min(nets_found, key=len)
             net_pips = self.run_command('getNetPIPs', net)
 
             # Check that PIPs were found for the given net
@@ -704,10 +707,7 @@ class VivadoQuery(DesignQuery):
                 
                 # Remove any item surrounded by <> from the list
                 for item in raw_out:
-                    # Check if current item if surrounded by <>
-                    if item[0] == '<' and item[-1] == '>':
-                        continue
-                    elif item:
+                    if item:
                         out.append(item)
                 return out
             else:
@@ -884,3 +884,17 @@ class VivadoQuery(DesignQuery):
         tiles = {tile for tile in tiles if 'INTERFACE' not in tile}
 
         return tiles
+
+    
+    ###############################
+    #   net_analysis.py Helpers   #
+    ###############################
+
+    def get_all_nets(self):
+        '''
+            Retrieves all nets in the design
+                Returns: list of all net names
+        '''
+
+        nets = self.run_command('getNets', '')
+        return nets
