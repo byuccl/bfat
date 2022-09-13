@@ -1,3 +1,5 @@
 rapidwright==2022.1.1
-tqdm
 pytest
+tqdm
+matplotlib
+pyqt5

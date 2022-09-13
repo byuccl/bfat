@@ -388,3 +388,16 @@ class RpdQuery(DesignQuery):
                     tiles_used.add(pip_tile)
 
         return tiles_used
+
+    ###############################
+    #   net_analysis.py Helpers   #
+    ###############################
+
+    def get_all_nets(self):
+        '''
+            Retrieves all nets in the design
+                Returns: list of all net names
+        '''
+
+        nets = [str(net.toString()) for net in self.query.getNets()]
+        return nets
