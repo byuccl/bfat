@@ -382,7 +382,7 @@ def parse_fault_report_contents(fault_report:str):
                     # Parse in any bit info found
                     if 'bit_' in line:
                         # Determine method of parsing in bit info by the current section
-                        if section == 'Significant':
+                        if section == 'Failure':
                             # Parse in bit info from the next few lines
                             bit, fault_type = line.strip().split(' ')
                             tile, resource, fctn = fr.readline().strip().split(' - ')
@@ -427,7 +427,7 @@ def parse_fault_report_contents(fault_report:str):
                             contents[group][section][bit]['fault'] = fault
                             contents[group][section][bit]['affected PIPs'] = affected_pips
                             contents[group][section][bit]['affected resources'] = affected_resources
-                        elif section == 'Errorless':
+                        elif section == 'Non-Failure':
                             # Parse limited bit info from the line
                             bit, bit_info = line.strip().split(': ')
                             tile, resource, fctn, design_name = bit_info.split(' - ')
@@ -438,21 +438,11 @@ def parse_fault_report_contents(fault_report:str):
                             contents[group][section][bit]['resource'] = resource
                             contents[group][section][bit]['function'] = fctn
                             contents[group][section][bit]['design_name'] = design_name
-                        elif section == 'Unsupported':
-                            # Parse limited bit info from the line
-                            bit, bit_info = line.strip().split(': ')
-                            tile, resource, fctn = bit_info.split(' - ')
-
-                            # Add parsed bit info to data
-                            contents[group][section][bit] = {}
-                            contents[group][section][bit]['tile'] = tile
-                            contents[group][section][bit]['resource'] = resource
-                            contents[group][section][bit]['function'] = fctn
                         elif section == 'Undefined':
                             # Get bit from line and add it to data
                             contents[group][section].append(line.strip())
                         else:
-                            print('ERROR: Bit found outside of any known sections')
+                            print(f'ERROR: Bit found outside of any known sections ({section})')
                             raise ValueError
     
     return contents

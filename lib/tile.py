@@ -26,8 +26,6 @@
 
 from os.path import exists
 
-get_xray_dir = 'stuff'
-
 class Tile:
     '''
         Stores the configuration information for a specific tile

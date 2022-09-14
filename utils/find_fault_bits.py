@@ -53,7 +53,7 @@ from bitread import get_high_bits, get_frame_list
 from lib.design_query import DesignQuery, VivadoQuery
 from lib.file_processing import parse_tilegrid
 from lib.tile import Tile
-from lib.bit_definitions import bit_bitstream_addr
+from lib.define_bit import bit_bitstream_addr
 
 import subprocess
 import json
@@ -198,7 +198,6 @@ def get_bit_for_open(design:DesignQuery, tilegrid_info:dict, used_INT_tiles:set,
 
     return [bitstream_addr[4:].replace('_', ' ')]
 
-# TODO: Get all tiles with at least two nets?
 def get_bits_for_short(design:DesignQuery, tilegrid_info:dict, INT_tiles:set, design_bits:list, part_name:str, uc_node:bool):
     '''
         Determines what bits must be flipped to create a short between nets in the design

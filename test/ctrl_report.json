@@ -1,6 +1,6 @@
 {
     "Bit Group 1": {
-        "Significant": {
+        "Failure": {
             "num_bits": 1,
             "tile": "CLB",
             "resource": "EXISTS",
@@ -10,7 +10,7 @@
         }
     },
     "Bit Group 2": {
-        "Significant": {
+        "Failure": {
             "num_bits": 1,
             "tile": "INT",
             "resource": "EXISTS",
@@ -19,7 +19,7 @@
         }
     },
     "Bit Group 3": {
-        "Significant": {
+        "Failure": {
             "num_bits": 1,
             "tile": "INT",
             "resource": "EXISTS",
@@ -28,7 +28,7 @@
         }
     },
     "Bit Group 4": {
-        "Significant": {
+        "Failure": {
             "num_bits": 1,
             "tile": "INT",
             "resource": "EXISTS",
@@ -42,7 +42,7 @@
         }
     },
     "Bit Group 6": {
-        "Errorless": {
+        "Non-Failure": {
             "num_bits": 2,
             "tile": [
                 "CLB",

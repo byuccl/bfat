@@ -814,7 +814,7 @@ class VivadoQuery(DesignQuery):
     def get_CLB_affected_resources(self, site: str, function: str):
         '''
             Handles affected resource tracing for certain special cases in CLB tiles
-                Arguments: strings of the tile, site, and function of the bit
+                Arguments: strings of the site and function of the bit
                 Returns: list of affected resources
         '''
 

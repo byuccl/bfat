@@ -42,8 +42,8 @@ class Statistics:
                       'Fault Bits',
                       'Routing Fault Bits',
                       'CLB Fault Bits',
-                      'Unsupported Fault Bits',
-                      'Unknown Fault Bits',
+                      'Non-Failure Fault Bits',
+                      'Undefined Fault Bits',
                       'Bits Driven High',
                       'Bits Driven Low',
                       'Found Errors',
@@ -138,42 +138,48 @@ def get_bit_group_stats(group_bits:dict, print_flag = False, outfile: TextIOWrap
 
     # Update statistic values based on the information of each bit
     error_in_group = False
-    for fault_bit in group_bits:
+    for fb in group_bits.values():
         group_stats.stats['Fault Bits'] += 1
-        tile, _, _, _, change, fault_error, _, _ = group_bits[fault_bit]
+
+        is_defined = type(fb.tile) != list
 
         # Update the statistics based on the current fault bit's tile
-        if tile == 'NA':
-            group_stats.stats['Unknown Fault Bits'] += 1
-        elif 'INT_L' in tile or 'INT_R' in tile:
+        if not is_defined:
+            group_stats.stats['Undefined Fault Bits'] += 1
+        elif 'INT_L' in fb.tile or 'INT_R' in fb.tile:
             group_stats.stats['Routing Fault Bits'] += 1
-        elif 'CLB' in tile:
+        elif 'CLB' in fb.tile:
             group_stats.stats['CLB Fault Bits'] += 1
 
         # Update the statistics based on the current fault bit's change
-        if change == '0->1':
+        if fb.type == '0->1':
             group_stats.stats['Bits Driven High'] += 1
-        elif change == '1->0':
+        elif fb.type == '1->0':
             group_stats.stats['Bits Driven Low'] += 1
 
+        # Set failure message indicator substrings
+        n_sptd = 'not yet supported'
+        n_fail = 'Not able to find any failures'
+        n_inst = 'No instanced resource'
+
         # Update the statistics based on the type of error for the current fault bit
-        if 'not yet supported' in fault_error and tile != 'NA':
-            group_stats.stats['Unsupported Fault Bits'] += 1
-        elif 'CLB' in tile and 'bit altered' in fault_error:
+        if is_defined and n_sptd in fb.failure or n_fail in fb.failure or n_inst in fb.failure:
+            group_stats.stats['Non-Failure Fault Bits'] += 1
+        elif 'CLB' in fb.tile and 'bit altered' in fb.failure:
             group_stats.stats['CLB Altered Bit Errors'] += 1
             group_stats.stats['Found Errors'] += 1
             error_in_group = True
-        elif 'Opens created' in fault_error and 'Shorts formed' not in fault_error:
-            num_opens = 1 + fault_error.count(',')
+        elif 'Opens created' in fb.failure and 'Shorts formed' not in fb.failure:
+            num_opens = 1 + fb.failure.count(',')
             group_stats.stats['PIP Open Errors'] += num_opens
             group_stats.stats['Found Errors'] += 1
             error_in_group = True
-        elif 'Shorts formed' in fault_error and 'Opens created' not in fault_error:
+        elif 'Shorts formed' in fb.failure and 'Opens created' not in fb.failure:
             group_stats.stats['PIP Short Errors'] += 1
             group_stats.stats['Found Errors'] += 1
             error_in_group = True
-        elif 'Opens created' in fault_error and 'Shorts formed' in fault_error:
-            num_opens = 1 + fault_error.count(',', 0, fault_error.find(';'))
+        elif 'Opens created' in fb.failure and 'Shorts formed' in fb.failure:
+            num_opens = 1 + fb.failure.count(',', 0, fb.failure.find(';'))
             group_stats.stats['PIP Open Errors'] += num_opens
             group_stats.stats['PIP Short Errors'] += 1
             group_stats.stats['Found Errors'] += 1

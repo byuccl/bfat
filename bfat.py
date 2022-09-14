@@ -39,10 +39,12 @@
 
 import time
 from io import TextIOWrapper
+from tqdm import tqdm
+
 from lib.tile import Tile
 from lib.file_processing import parse_tilegrid, parse_fault_bits, parse_design_bits
 from lib.design_query import VivadoQuery
-from lib.bit_definitions import def_fault_bits
+from lib.fault_analysis import FaultBit, analyze_bit_group
 from lib.statistics import Statistics, print_stat_footer, get_bit_group_stats
 from bitread import get_high_bits
 
@@ -60,7 +62,7 @@ def get_tile_type_name(tile:str):
     end_index = tile.find('_X')
     return tile[:end_index]
 
-def gen_tile_images(tile_info:dict, part:str):
+def gen_tile_images(tilegrid:dict, part:str):
     '''
         Generates the data structures storing the information for each tile type on the part
             Arguments: Dict of the part's tilegrid and a string of the part name
@@ -69,7 +71,7 @@ def gen_tile_images(tile_info:dict, part:str):
 
     tile_imgs = {}
     # Iterate through, and create an object for, each Tile Archetype
-    for curr_tile in tile_info:
+    for curr_tile in tilegrid:
         t_tp = get_tile_type_name(curr_tile)
         # If the tile type does not already have an archetype, add it to the dictionary
         if t_tp not in tile_imgs:
@@ -99,36 +101,35 @@ def get_outfile_name(outname_arg:str, fault_bits_path:str):
     # Return the fault bit list file root name with default output file name formatting
     return f'{outfile_name}_fault_report.txt'
 
-def gen_tcl_cmds(fault_info:list, outfile:TextIOWrapper):
+def gen_tcl_cmds(bit:FaultBit, outfile:TextIOWrapper):
     '''
         Automatically generates and prints tcl commands to select related design objects
         for the fault bit whose information is passed in.
             Arguments: List of fault info and opened file object for output file
     '''
 
-    tile, _, _, _, _, fault_msg, aff_rsrcs, aff_pips = fault_info
-    tile_type = get_tile_type_name(tile)
+    tile_type = get_tile_type_name(bit.tile)
 
     outfile.write('\n\tVivado Tcl Commands:\n')
 
     # Get the nets and pips from the fault bit's fault info and add them to
     # the generated tcl command to select them in Vivado
-    if 'INT' in tile and ('Opens' in fault_msg or 'Shorts' in fault_msg):
+    if 'INT' in bit.tile and ('Opens' in bit.failure or 'Shorts' in bit.failure):
         
         # Print the tcl command for selecting the affected pips
-        reformatted_pips = [f'{tile}/{tile_type}.{pip.split(" ")[0]}' for pip in aff_pips]
+        reformatted_pips = [f'{bit.tile}/{tile_type}.{pip.split(" ")[0]}' for pip in bit.affected_pips]
         outfile.write(f'\t\tselect_objects [get_pips {{{" ".join(sorted(reformatted_pips))}}}]\n')
 
         msg_nets = []
 
         # Determine composition of fault message and extract nets from it
-        if ';' in fault_msg:
-            fault_msg_halves = fault_msg.split(';')
+        if ';' in bit.failure:
+            fault_msg_halves = bit.failure.split(';')
             for half in fault_msg_halves:
                 half = half.split(':')[1]
                 msg_nets.extend(half.strip().split(', '))
         else:
-            net_list_str = fault_msg.split(':')[1]
+            net_list_str = bit.failure.split(':')[1]
             msg_nets.extend(net_list_str.strip().split(', '))
 
         # Identify all unconnected node placeholders from message
@@ -155,10 +156,10 @@ def gen_tcl_cmds(fault_info:list, outfile:TextIOWrapper):
 
     # Get the cells of the affected resources if there are any and add them
     # to the generated tcl command to select them in Vivado
-    if aff_rsrcs and 'NA' not in aff_rsrcs and 'No affected resources found' not in aff_rsrcs:
-        aff_rsrcs_str = ' '.join(sorted(aff_rsrcs))
+    if bit.affected_rsrcs and 'NA' not in bit.affected_rsrcs and 'No affected resources found' not in bit.affected_rsrcs:
+        aff_rsrcs_str = ' '.join(sorted(bit.affected_rsrcs))
         outfile.write(f'\t\tselect_objects [get_cells {{{aff_rsrcs_str}}}]\n')
-    elif 'INT' in tile and ('Opens' in fault_msg or 'Shorts' in fault_msg):
+    elif 'INT' in bit.tile and ('Opens' in bit.failure or 'Shorts' in bit.failure):
         outfile.write('\n')
     outfile.write('\n')
 
@@ -171,26 +172,28 @@ def classify_fault_bits(group_bits:dict):
                      report and a list of the undefined bits in the fault_report
     '''
 
-    undefined_bits = {}
-    unsupported_bits = {}
-    errorless_bits = {}
-    significant_bits = {}
+    undefined_bits = []
+    nonfailure_bits = []
+    failure_bits = []
+
+    # Set failure message indicator substrings
+    n_sptd = 'not yet supported'
+    n_fail = 'Not able to find any failures'
+    n_inst = 'No instanced resource'
 
     # Iterate through each fault bit in the current bit group and classify fault bits
-    for fault_bit, bit_info in group_bits.items():
-        tile, rsrc, fctn, dsgn_rsrc, _, fault_msg, aff_rsrcs, _ = bit_info
-
-        # Classify fault bit by its significance and add it to its respective collections
-        if tile == 'NA':
-            undefined_bits[fault_bit] = aff_rsrcs
-        elif tile != 'NA' and 'not yet supported' in fault_msg:
-            unsupported_bits[fault_bit] = [tile, rsrc, fctn]
-        elif 'Not able to find any errors' in fault_msg or 'No instanced resource' in fault_msg:
-            errorless_bits[fault_bit] = [tile, rsrc, fctn, dsgn_rsrc]
+    for b in group_bits.values():
+        # Classify fault bit by its definition
+        if type(b.tile) == list:
+            undefined_bits.append(b)
         else:
-            significant_bits[fault_bit] = bit_info
+            # Classify fault bit by any found failures for the bit
+            if n_sptd in b.failure or n_fail in b.failure or n_inst in b.failure:
+                nonfailure_bits.append(b)
+            else:
+                failure_bits.append(b)
 
-    return significant_bits, errorless_bits, unsupported_bits, undefined_bits
+    return failure_bits, nonfailure_bits, undefined_bits
 
 def print_bit_group_section(section_name:str, section_bits, outfile:TextIOWrapper):
     '''
@@ -205,58 +208,58 @@ def print_bit_group_section(section_name:str, section_bits, outfile:TextIOWrappe
         outfile.write(f'{section_name}:\n{soft_divider}\n')
 
         # Identify section and print its information in its respective format
-        if section_name == 'Significant Bits':
+        if section_name == 'Failure Bits':
             # Print out the information for each fault bit in the current bit group
-            for fault_bit, bit_info in section_bits.items():
-                tile, rsrc, fctn, dsgn_rsrc, change, fault_msg, aff_rsrcs, aff_pips = bit_info
-                outfile.write(f'{fault_bit} ({change})\n')
-                outfile.write(f'\t{tile} - {rsrc} - {fctn}\n')
-                outfile.write(f'\tResource Design Name: {dsgn_rsrc}\n')
+            for sb in section_bits:
+                outfile.write(f'{sb.bit} ({sb.type})\n')
+                outfile.write(f'\t{sb.tile} - {sb.resource} - {sb.function}\n')
+                outfile.write(f'\tResource Design Name: {sb.design_name}\n')
 
                 # Change some net names in the fault message for consistency
-                fault_msg = fault_msg.replace('GLOBAL_LOGIC0', '<const0>')
-                fault_msg = fault_msg.replace('GLOBAL_LOGIC1', '<const1>')
+                sb.failure = sb.failure.replace('GLOBAL_LOGIC0', '<const0>')
+                sb.failure = sb.failure.replace('GLOBAL_LOGIC1', '<const1>')
 
-                outfile.write(f'\t{fault_msg}\n')
+                outfile.write(f'\t{sb.failure}\n')
 
                 # Only print affected pips if this is a routing bit
-                if 'INT' in tile:
+                if 'INT' in sb.tile:
                     outfile.write('\tAffected PIPs:\n')
                     # Print each affected pip in an indented list of 1 per line
-                    for aff_pip in aff_pips:
+                    for aff_pip in sb.affected_pips:
                         outfile.write(f'\t\t{aff_pip}\n')
 
                 outfile.write('\tAffected Resources:\n')
                 # Print each affected resource in an indented list of 1 per line
-                for aff_rsrc in sorted(aff_rsrcs):
+                for aff_rsrc in sorted(sb.affected_rsrcs):
                     outfile.write(f'\t\t{aff_rsrc}\n')
 
-                gen_tcl_cmds(bit_info, outfile)
+                gen_tcl_cmds(sb, outfile)
 
         elif section_name == 'Undefined Bits':
             # Print out each undefined bit and its potential tiles
-            for bit in section_bits:
-                outfile.write(f'{bit}\n')
+            for sb in section_bits:
+                outfile.write(f'{sb.bit}\n')
                 outfile.write('\tPotential Affected Resources:\n')
 
                 # Print each potential tile and its cells for the undefined bit
-                for tile, possible_aff_rsrcs in sorted(section_bits[bit].items()):
+                for tile, possible_aff_rsrcs in sorted(sb.affected_rsrcs.items()):
                     outfile.write(f'\t\t{tile}:\n')
                     for rsrc in sorted(possible_aff_rsrcs):
                         outfile.write(f'\t\t\t{rsrc}\n')
                     if possible_aff_rsrcs == []:
                         outfile.write('\t\t\tNo resources found for this tile\n')
 
-                if section_bits[bit] == {}:
-                    outfile.write('\t\tNo potential tiles found')
+                if sb.affected_rsrcs == {}:
+                    outfile.write('\t\tNo potential tiles found\n')
 
             outfile.write('\n')
         else:
             # Print out each error-less bit and bit information
-            for bit, bit_info in section_bits.items():
-                outfile.write(f'{bit}: ')
-                outfile.write(' - '.join(bit_info))
+            for sb in section_bits:
+                outfile.write(f'{sb.bit}: ')
+                outfile.write(' - '.join([sb.tile, sb.resource, sb.function, sb.design_name]))
                 outfile.write('\n')
+                outfile.write(f'\t{sb.failure}\n')
             outfile.write('\n')
 
 def print_fault_report(outfile:str, fault_report:dict):
@@ -282,12 +285,11 @@ def print_fault_report(outfile:str, fault_report:dict):
                 out_f.write(f'{title_center_offset}Bit Group {bit_group}\n')
                 out_f.write(f'{heavy_divider}\n\n')
 
-                significant_bits, errorless_bits, unsupported_bits, undefined_bits = classify_fault_bits(group_bits)
+                failure_bits, nonfailure_bits, undefined_bits = classify_fault_bits(group_bits)
 
                 # Print summary of each section
-                print_bit_group_section('Significant Bits', significant_bits, out_f)
-                print_bit_group_section('Errorless Bits', errorless_bits, out_f)
-                print_bit_group_section('Unsupported Bits', unsupported_bits, out_f)
+                print_bit_group_section('Failure Bits', failure_bits, out_f)
+                print_bit_group_section('Non-Failure Bits', nonfailure_bits, out_f)
                 print_bit_group_section('Undefined Bits', undefined_bits, out_f)
 
                 # Calculate and print group stats, and update total stats
@@ -309,42 +311,47 @@ def main(args):
     t_start = time.perf_counter()
 
     # Parse in all high bits from the bitstream or from a .bits file [base_frame, word, bit]
+    print('Reading in Design Bits...')
     if args.bits_file:
         design_bits = parse_design_bits(args.bitstream)
     else:
         design_bits = get_high_bits(args.bitstream)
-    print(f'Design Bits Read In:\t\t{round(time.perf_counter()-t_start, 2)} sec')
 
     # Create a design query to get design info from the dcp file
+    print('Generating Design Query...')
     if args.rapidwright:
         from lib.rpd_query import RpdQuery
         design = RpdQuery(args.dcp_file)
     else:
         design = VivadoQuery(args.dcp_file)
-    print(f'Design Query Created:\t\t{round(time.perf_counter()-t_start, 2)} sec')
 
     # Parse in the corresponding part's tilegrid.json file
-    tile_info = parse_tilegrid(design.part)
-    # Parse in the fault bit information
+    print('Parsing in Input Files...')
+    tilegrid = parse_tilegrid(design.part)
+    # Parse in the fault bit informationtile_
     bit_groups = parse_fault_bits(args.fault_bits)
-    print(f'Input Files Parsed:\t\t{round(time.perf_counter()-t_start, 2)} sec')
 
     # Generate images of tiles from the part's tilegrid
-    tile_imgs = gen_tile_images(tile_info, design.part)
-    print(f'Tile Images Generated:\t\t{round(time.perf_counter()-t_start, 2)} sec')
+    print('Generating Tile Images...')
+    tile_imgs = gen_tile_images(tilegrid, design.part)
 
+    # Create dynamic progress bar for fault analysis of bit groups 
+    fa_pbar = tqdm(bit_groups.items())
+    fa_pbar.set_description('Analyzing Fault Bit Groups')
+    
     # Define and evaluate each fault bit and generate data structure for a report
-    fault_report = def_fault_bits(bit_groups, tile_info, tile_imgs, design_bits, design)
-    print(f'Fault Bits Analyzed:\t\t{round(time.perf_counter()-t_start, 2)} sec')
+    fault_report = {}
+    for bg, grp_bits in fa_pbar:
+        fault_report[bg] = analyze_bit_group(grp_bits, tilegrid, tile_imgs, design_bits, design)
 
     # Create and output report based on analysis of fault bits
+    print('Printing Fault Report...')
     outfile = get_outfile_name(args.out_file, args.fault_bits)
     statistics = print_fault_report(outfile, fault_report)
-    print(f'Fault Report Printed:\t\t{round(time.perf_counter()-t_start, 2)} sec')
 
     # Calculate and print fault bit statistics
+    print('Printing Statistical Footer...')
     print_stat_footer(outfile, args.dcp_file, statistics, round(time.perf_counter()-t_start, 2))
-    print(f'Statistical Footer Printed:\t{round(time.perf_counter()-t_start, 2)} sec')
 
 if __name__ == '__main__':
     import argparse
