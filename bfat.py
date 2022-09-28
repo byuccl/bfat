@@ -244,9 +244,9 @@ def print_bit_group_section(section_name:str, section_bits, outfile:TextIOWrappe
                 # Print each potential tile and its cells for the undefined bit
                 for tile, possible_aff_rsrcs in sorted(sb.affected_rsrcs.items()):
                     outfile.write(f'\t\t{tile}:\n')
-                    for rsrc in sorted(possible_aff_rsrcs):
-                        outfile.write(f'\t\t\t{rsrc}\n')
-                    if possible_aff_rsrcs == []:
+                    for bel, rsrc in sorted(possible_aff_rsrcs.items()):
+                        outfile.write(f'\t\t\t{bel}: {rsrc}\n')
+                    if possible_aff_rsrcs == {}:
                         outfile.write('\t\t\tNo resources found for this tile\n')
 
                 if sb.affected_rsrcs == {}:

@@ -290,7 +290,7 @@ def possible_aff_rsrcs(potential_tiles:list, design:DesignQuery):
 
     # Get all cells in each of the tiles
     for tile in potential_tiles:
-        possible_rsrcs[tile] = []
+        possible_rsrcs[tile] = {}
         design.query_cells(tile)
         
         # Verify that there are cells in the tile
@@ -298,13 +298,13 @@ def possible_aff_rsrcs(potential_tiles:list, design:DesignQuery):
             continue
 
         # Get all cells in the tile
-        for site_bels in design.cells[tile].values():
+        for site, site_bels in design.cells[tile].items():
             # Skip site iteration if the site has no bels with a cell
             if 'None' in site_bels:
                 continue
             # Get the cell for each of the bels
-            for cell in site_bels.values():
-                possible_rsrcs[tile].append(cell)
+            for bel, cell in site_bels.items():
+                possible_rsrcs[tile][f'{site}/{bel}'] = cell
 
     return possible_rsrcs
 
