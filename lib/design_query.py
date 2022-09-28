@@ -695,21 +695,14 @@ class VivadoQuery(DesignQuery):
                     # Remove all WARNING messages when a command comes back as invalid
                     if 'WARNING' in line:
                         # Continue reading in lines from the outstream until all messages are gone
-                        while line:
+                        while line and 'WARNING' in line:
                             line = self.outstream.readline()
 
         # Check that raw output is not a system message
-        if raw_out and 'WARNING:' not in raw_out and 'ERROR:' not in raw_out and 'Resolution:' not in raw_out:
-            # Return a string or list from the vivado output as indicated by ret_list parameter
+        if raw_out and not any([mT in raw_out for mT in ['WARNING:', 'ERROR:', 'Resolution']]):
+            # Return a string or list from the vivado output as decided by ret_list parameter
             if ret_list:
-                out = []
-                raw_out = raw_out.split(' ')
-                
-                # Remove any item surrounded by <> from the list
-                for item in raw_out:
-                    if item:
-                        out.append(item)
-                return out
+                return raw_out.split(' ')
             else:
                 return raw_out
 
@@ -729,10 +722,9 @@ class VivadoQuery(DesignQuery):
                          tracing this node
         '''
         
+        # Get the node from the current wire
         current_node = self.run_command('getWireNode', f'{tile}/{wire}')
-        node_wires = self.run_command('getNodeWires', current_node)
         traced_nodes.add(current_node)
-        pips = self.get_pips(net)
 
         # Find any non-INT or same-tile wire connections for the initial node
         sink_conns = {conn for conn in self.run_command('getWireConnections', tile, wire)}
@@ -748,12 +740,12 @@ class VivadoQuery(DesignQuery):
             
             # If the connected tile is not an interconnect, check for cells
             if 'INT' not in conn_tile:
-                # Attempt to get site info for the current node
-                site = self.run_command('getNodeSite', conn)
+                # Attempt to get site pin for the current node
                 site_pin = self.run_command('getNodeSitePin', conn)
 
                 # Check if a site pin was found
                 if site_pin and site_pin != 'NA':
+                    site = self.run_command('getNodeSite', conn)
                     site_tile = self.run_command('getSiteTile', site)                
                     # Query the cells in the tile if not already queried
                     if site_tile not in self.cells:
@@ -771,6 +763,10 @@ class VivadoQuery(DesignQuery):
 
                     # Trace the site's affected cells from each of the initial cells found
                     [affected_rsrcs.union(self.trace_cells(site_tile, site, cell, affected_rsrcs)) for cell in init_cells]
+
+            # Get routing location info for further tracing
+            node_wires = self.run_command('getNodeWires', current_node)
+            pips = self.get_pips(net)
 
             # Check each pip if their nodes match wires from the current node and connection
             for pip in pips:

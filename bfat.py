@@ -168,8 +168,7 @@ def classify_fault_bits(group_bits:dict):
         Separates the insignificant fault bits from the significant and sorts them
         into their own dictionaries storing any significant information they have.
             Arguments: Dict of the fault bits in the bit group
-            Returns: Dicts of the significant, errorless, and unsupported bits in the fault
-                     report and a list of the undefined bits in the fault_report
+            Returns: Lists of the failure, non-failure, and undefined bits in the fault report
     '''
 
     undefined_bits = []
@@ -177,9 +176,9 @@ def classify_fault_bits(group_bits:dict):
     failure_bits = []
 
     # Set failure message indicator substrings
-    n_sptd = 'not yet supported'
-    n_fail = 'Not able to find any failures'
-    n_inst = 'No instanced resource'
+    nf_strs = ['not yet supported',
+               'Not able to find any failures',
+               'No instanced resource']
 
     # Iterate through each fault bit in the current bit group and classify fault bits
     for b in group_bits.values():
@@ -188,7 +187,7 @@ def classify_fault_bits(group_bits:dict):
             undefined_bits.append(b)
         else:
             # Classify fault bit by any found failures for the bit
-            if n_sptd in b.failure or n_fail in b.failure or n_inst in b.failure:
+            if any([nf_str in b.failure for nf_str in nf_strs]):
                 nonfailure_bits.append(b)
             else:
                 failure_bits.append(b)
@@ -254,7 +253,7 @@ def print_bit_group_section(section_name:str, section_bits, outfile:TextIOWrappe
 
             outfile.write('\n')
         else:
-            # Print out each error-less bit and bit information
+            # Print out each non-failure bit and bit information
             for sb in section_bits:
                 outfile.write(f'{sb.bit} ({sb.type}): ')
                 outfile.write(' - '.join([sb.tile, sb.resource, sb.function, sb.design_name]))
