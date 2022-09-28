@@ -26,6 +26,7 @@
 import os
 import json
 import subprocess
+import matplotlib.pyplot as plt
 
 # Add bfat root directory to the module import path
 import sys
@@ -44,7 +45,7 @@ def test_gen_design_files(dcp):
     '''
 
     # List design files to be generated
-    gen_files = ['test.bit', 'test.ebd', 'test.ll']
+    gen_files = ['test.bit', 'test.ebd', 'test.ll', 'test_nets.txt']
 
     # Run tcl script for generating design files through subprocess of vivado
     subprocess.run(['vivado', '-mode', 'batch', '-source', 'test/gen_test_files.tcl', '-tclargs', dcp])
@@ -151,6 +152,58 @@ def test_ll_sample_bits():
     # Fail if any bit doesn't have its 3 components
     assert not any([len(grp[0]) != 3 for grp in ll_list])
 
+def test_net_analysis(dcp, monkeypatch):
+    '''
+        Tests the functionality of net_analysis.py by creating an
+        analysis report for a test design and test nets
+    '''
+
+    from utils.net_analysis import main as net_analysis_main
+
+    # Create and set test args
+    args = UnitTestArgs()
+    args.dcp_file = dcp
+    args.nets = 'test/test_nets.txt'
+    args.out_file = 'test/test_nets_analysis.txt'
+    args.pickle = True
+    args.graph = True
+
+    # Force plots to not be shown
+    monkeypatch.setattr(plt, 'show', lambda: None)
+
+    # Run main function of net analysis tool with test input args
+    net_analysis_main(args)
+
+    # Check analysis report file and pickled file if they exists
+    assert os.path.exists(args.out_file)
+    assert os.path.exists('test/test_nets_analysis.pickle')
+
+    # Parse in the analysis report
+    analysis_report_1 = parse_net_analysis_contents(args.out_file)
+
+    # Make sure that the report matches the expected format
+    assert analysis_report_1[0][1] == 0
+    assert analysis_report_1[1][1] >= 1 and analysis_report_1[1][1] <= 100
+
+    # Run the tool again with the pickled file and verify the same results are given
+    args.nets = 'test/test_nets_analysis.pickle'
+    args.out_file = 'test/test_nets_analysis_pickle.txt'
+    args.pickled_input = True
+    args.pickle = False
+
+    # Run main function of net analysis tool with new input args
+    net_analysis_main(args)
+
+    # Make sure output file exists
+    assert os.path.exists(args.out_file)
+
+    # Parse in analysis report
+    analysis_report_2 = parse_net_analysis_contents(args.out_file)
+
+    # Make sure the original output file and the output from the pickle are identical
+    assert analysis_report_1 == analysis_report_2
+    
+
 def test_bitread():
     '''
         Tests the functionality of bitread.py converting a bitstream
@@ -187,7 +240,7 @@ def test_bfat(dcp):
     with open('test/ctrl_report.json') as cr:
         ctrl_report = json.load(cr)
 
-    # Create and set test args for BFAR run using vivado
+    # Create and set test args for BFAT run using vivado
     viv_args = UnitTestArgs()
     viv_args.bitstream = 'test/test.bits'
     viv_args.dcp_file = dcp
@@ -277,7 +330,9 @@ def test_remove_gen_files(keep_files):
         # List files to be removed
         rm_files = ['test/test.bit', 'test/test.bits', 'test/test.ebc', 'test/test.ebd',
                     'test/test.ll', 'test/*_test_report.txt', 'test*_sample_bits.json',
-                    'latest_run.log', 'vivado*.log', 'vivado*.jou']
+                    'test/test_nets.txt', 'test/test_nets_analysis.txt', 'latest_run.log',
+                    'test/test_nets_analysis.pickle', 'test/test_nets_analysis_pickle.txt',
+                    'vivado*.log', 'vivado*.jou']
 
         # Get the contents of the BFAT root and test directories
         bfat_dir = os.listdir('.')
@@ -334,6 +389,7 @@ class UnitTestArgs():
         self.dcp_file = None
         self.ebd_file = None
         self.ll_file = None
+        self.nets = None
         self.fault_bits = None
         self.out_file = None
 
@@ -341,6 +397,11 @@ class UnitTestArgs():
         self.run = None
         self.rapidwright = None
         self.bits_file = None
+        self.pickle = None
+        self.pickled_input = None
+        self.all_nets = None
+        self.graph = None
+        self.non_tmr = None
 
         self.num_bits = None
 
@@ -446,6 +507,54 @@ def parse_fault_report_contents(fault_report:str):
                             raise ValueError
     
     return contents
+
+def parse_net_analysis_contents(net_analysis_report:str):
+    '''
+        Parses in the provided net analysis report from running the net_analysis
+        utility and gets the relevant content for verification of a correct output
+            Arguments: String of path to fault report to interpret
+            Returns: List of generalized net_analysis_report content
+    '''
+
+    format_exception = Exception('Unexpected net analysis report format')
+
+    # Open the analysis report to parse in the info
+    with open(net_analysis_report) as r_f:
+        analysis_info = []
+        
+        line = ''
+        # Continue parsing until the statistics footer is reached
+        while True:
+            # Get the net name from the line
+            line = r_f.readline()
+
+            # End of the analysis report has been reached
+            if 'Summary Statistics' in line:
+                break
+
+            curr_net = line.strip()
+
+            # Get the number of pips from the line
+            line = r_f.readline()
+            if "Pips: " not in line:
+                raise format_exception
+            num_pips = int(line.split()[1][1:-1])
+
+            # Add net and number of pips to dictionary
+            analysis_info.append((curr_net, num_pips))
+
+            # Skip information about each pip
+            while 'Total config bits: ' not in line:
+                line = r_f.readline()
+
+            lines = [r_f.readline(), r_f.readline(), r_f.readline()]
+            # Make sure the space between nets is in the correct format
+            if lines[0] != '\n' and lines[2] != '\n':
+                raise format_exception
+            if lines[1] != '-----------------------------------\n':
+                raise format_exception
+
+    return analysis_info
 
 def eval_attr_rule(report_bit:dict, attr:str, rule:str):
     '''

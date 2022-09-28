@@ -28,6 +28,7 @@ import copy
 from lib.define_bit import Bit, bit_bitstream_addr
 from lib.design_query import DesignQuery
 from lib.tile import Tile
+from bitread import get_frame_list
 
 class FaultBit(Bit):
     '''
@@ -55,7 +56,7 @@ class FaultBit(Bit):
     '''
 
     # Init from corresponding Bit object
-    def __init__(self, bit:Bit, design_bits:list, design:DesignQuery):
+    def __init__(self, bit:Bit, design_bits:list, frame_list:list, design:DesignQuery):
         # Copy input Bit attributes
         self.bit = bit.bit
         self.tile = bit.tile
@@ -67,8 +68,11 @@ class FaultBit(Bit):
         # Select fault type based on the bit's presence in design bits
         if self.bit in design_bits:
             self.type = '1->0'
-        else:
+        # If the bit address could be found, make sure that the bit has a valid frame address
+        elif self.bit.split('_')[1] in frame_list:
             self.type = '0->1'
+        else:
+            self.type = 'NA'
 
         self.design_name = 'NA'
         self.affected_rsrcs = ['NA']
@@ -83,27 +87,28 @@ class FaultBit(Bit):
     ##################################################
 
     @classmethod
-    def fromAddress(cls, bitstream_addr:str, tilegrid:dict, tile_imgs:dict, design_bits:list, design:DesignQuery):
+    def fromAddress(cls, bitstream_addr:str, frame_list:list, tilegrid:dict, tile_imgs:dict, design_bits:list, design:DesignQuery):
         '''
             Initialize FaultBit from bitstream address and part information
-                Arguments: String of the bit's bitstream address, dicts of the tilegrid
-                           and images of the part's tiles, a list of design bits, and
-                           a query for the design
+                Arguments: String of the bit's bitstream address, list of valid frames for the part,
+                           dicts of the tilegrid and images of the part's tiles, a list of design
+                           bits, and a query for the design
                 Returns: Newly generated FaultBit object from the data provided
         '''
 
         bit = Bit(bitstream_addr, tilegrid, tile_imgs)
-        return cls(bit, design_bits, design)
+        return cls(bit, design_bits, frame_list, design)
     
     @classmethod
-    def fromBit(cls, bit:Bit, design_bits:list, design:DesignQuery):
+    def fromBit(cls, bit:Bit, frame_list:list, design_bits:list, design:DesignQuery):
         '''
             Initialize FaultBit from corresponding Bit object
-                Arguments: Bit object to adapt, list of design bits, and a query for the design
+                Arguments: Bit object to adapt, lists of valid frames for the part
+                           and design bits, and a query for the design
                 Returns: Newly generated FaultBit object from the data provided
         '''
 
-        return cls(bit, design_bits, design)
+        return cls(bit, design_bits, frame_list, design)
 
     def __str__(self):
         '''
@@ -182,14 +187,15 @@ class FaultBit(Bit):
                 self.affected_rsrcs = ['No affected resources found']
 
 ##################################################
-#          Bit Group Analysus Functions          #
+#          Bit Group Analysis Functions          #
 ##################################################
 
-def analyze_bit_group(group_bits:list, tilegrid:dict, tile_imgs:dict, design_bits:list, design:DesignQuery):
+def analyze_bit_group(group_bits:list, frame_list:list, tilegrid:dict, tile_imgs:dict, design_bits:list, design:DesignQuery):
     '''
         Analyzes the fault bits in the provided bit group in their part and design
-            Arguments: List of fault bits to be analyzed, dicts of the part's tilegrid and 
-                       tile images, list of the design bits, and a query for the design's data
+            Arguments: List of fault bits to be analyzed, list of valid frames for the part,
+                       dicts of the part's tilegrid and tile images, list of the design bits,
+                       and a query for the design's data
             Returns: Dict of the updated FaultBit objects after analysis
     '''
 
@@ -199,7 +205,7 @@ def analyze_bit_group(group_bits:list, tilegrid:dict, tile_imgs:dict, design_bit
     # Generate FaultBit object for each bit in group and organize by tile
     for gb in group_bits:
         bitstream_addr = 'bit_' + '_'.join(gb)
-        fb = FaultBit.fromAddress(bitstream_addr, tilegrid, tile_imgs, design_bits, design)
+        fb = FaultBit.fromAddress(bitstream_addr, frame_list, tilegrid, tile_imgs, design_bits, design)
 
         # Add any fault bits for INT tiles a dictionary under its tile
         if 'INT_L' in fb.tile or 'INT_R' in fb.tile:

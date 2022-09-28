@@ -46,7 +46,7 @@ from lib.file_processing import parse_tilegrid, parse_fault_bits, parse_design_b
 from lib.design_query import VivadoQuery
 from lib.fault_analysis import FaultBit, analyze_bit_group
 from lib.statistics import Statistics, print_stat_footer, get_bit_group_stats
-from bitread import get_high_bits
+from bitread import get_frame_list, get_high_bits
 
 ##################################################
 # Functions for Design Generation and Processing #
@@ -152,7 +152,7 @@ def gen_tcl_cmds(bit:FaultBit, outfile:TextIOWrapper):
             # Remove "(initially connected)" from string"
             msg_nets_str = msg_nets_str.replace(' (initially connected)', '')
 
-            outfile.write(f'\t\tselect_objects [get_nets -hier {{{msg_nets_str}}}]\n')
+            outfile.write(f'\t\tselect_objects [get_nets {{{msg_nets_str}}}]\n')
 
     # Get the cells of the affected resources if there are any and add them
     # to the generated tcl command to select them in Vivado
@@ -237,7 +237,7 @@ def print_bit_group_section(section_name:str, section_bits, outfile:TextIOWrappe
         elif section_name == 'Undefined Bits':
             # Print out each undefined bit and its potential tiles
             for sb in section_bits:
-                outfile.write(f'{sb.bit}\n')
+                outfile.write(f'{sb.bit} ({sb.type})\n')
                 outfile.write('\tPotential Affected Resources:\n')
 
                 # Print each potential tile and its cells for the undefined bit
@@ -255,7 +255,7 @@ def print_bit_group_section(section_name:str, section_bits, outfile:TextIOWrappe
         else:
             # Print out each non-failure bit and bit information
             for sb in section_bits:
-                outfile.write(f'{sb.bit}: ')
+                outfile.write(f'{sb.bit} ({sb.type}): ')
                 outfile.write(' - '.join([sb.tile, sb.resource, sb.function, sb.design_name]))
                 outfile.write('\n')
                 outfile.write(f'\t{sb.failure}\n')
@@ -327,6 +327,8 @@ def main(args):
     # Parse in the corresponding part's tilegrid.json file
     print('Parsing in Input Files...')
     tilegrid = parse_tilegrid(design.part)
+    # Parse in a frame list for the part
+    frame_list = [frame[0] for frame in get_frame_list(design.part)]
     # Parse in the fault bit information
     bit_groups = parse_fault_bits(args.fault_bits)
 
@@ -341,7 +343,7 @@ def main(args):
     # Define and evaluate each fault bit and generate data structure for a report
     fault_report = {}
     for bg, grp_bits in fa_pbar:
-        fault_report[bg] = analyze_bit_group(grp_bits, tilegrid, tile_imgs, design_bits, design)
+        fault_report[bg] = analyze_bit_group(grp_bits, frame_list, tilegrid, tile_imgs, design_bits, design)
 
     # Create and output report based on analysis of fault bits
     print('Printing Fault Report...')

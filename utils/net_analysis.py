@@ -222,7 +222,7 @@ def graph_output(nets:list):
     N_BINS = 50
 
     # Extract the number of related bits from each net's object
-    bit_freqs = [net.num_bits for net in nets if net.num_bits < 1000]
+    bit_freqs = [net.num_bits for net in nets]
 
     # Create the plot
     plt.hist(bit_freqs, density=False, bins=N_BINS)
@@ -384,13 +384,32 @@ def print_analysis(analyzed_nets:list, outfile:str):
         # Extract the number of related bits from each net's object
         bit_freqs = [net.num_bits for net in analyzed_nets]
 
-        # Gather and print some summary statistics
+        # Gather some summary statistics about the data
+        num_nets = len(bit_freqs)
+        num_bits = sum(bit_freqs)
+        bits_mean = mean(bit_freqs)
+        bits_median = median(bit_freqs)
+        
+        # Standard deviation is only valid for data sets longer than one
+        if num_nets > 1:
+            bits_sd = stdev(bit_freqs)
+        else:
+            bits_sd = 'NA'
+
+        # Deciles only valid for data sets larger than 10
+        if num_nets > 10:
+            bits_deciles = quantiles(bit_freqs, n=10)
+        else:
+            bits_deciles = 'NA'
+
+        # Print the previously calculated summary statistics
         o_f.write('Summary Statistics:\n')
-        o_f.write(f'\tNumber of Nets Analyzed: {len(bit_freqs)}\n')
-        o_f.write(f'\tMean of Bits Per Net: {mean(bit_freqs)}\n')
-        o_f.write(f'\tStdDev of Bits Per Net: {stdev(bit_freqs)}\n')
-        o_f.write(f'\tMedian of Bits Per Net: {median(bit_freqs)}\n')
-        o_f.write(f'\tDeciles of Bits Per Net: {quantiles(bit_freqs, n=10)}')
+        o_f.write(f'\tNumber of Nets Analyzed: {num_nets}\n')
+        o_f.write(f'\tNumber of Sensitive Bits: {num_bits}\n')
+        o_f.write(f'\tMean of Bits Per Net: {bits_mean}\n')
+        o_f.write(f'\tStdDev of Bits Per Net: {bits_sd}\n')
+        o_f.write(f'\tMedian of Bits Per Net: {bits_median}\n')
+        o_f.write(f'\tDeciles of Bits Per Net: {bits_deciles}')
 
 ############################################
 #               Main Function              #
@@ -450,7 +469,7 @@ def main(args):
 
     # Get the output file name
     print('Generating output file...')
-    outfile = get_outfile_name(args.out_file, args.nets, args.non_tmr != '')
+    outfile = get_outfile_name(args.out_file, args.nets, bool(args.non_tmr))
 
     # Print report of the found information
     print_analysis(analyzed_nets, outfile)
