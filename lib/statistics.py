@@ -92,12 +92,13 @@ class Statistics:
             if stat in self.stats:
                 self.stats[stat] += value
 
-def print_stat_footer(outfile:str, dcp_file:str, statistics:dict, elapsed_time:float):
+def print_stat_footer(outfile:str, dcp_file:str, rpd_used:bool, statistics:dict, elapsed_time:float):
     '''
         Reads through the given fault report for the design and calculates significant statistical
         information and prints it all to the end of the provided output file.
-            Arguments: String of output file path, path to the design's dcp file, dict of the
-                       statistics of the entire design, and a float of the program's starting time
+            Arguments: String of output file path, path to the design's dcp file, bool of whether
+                       RapidWright was used, dict of the statistics of the entire design, and a
+                       float of the program's starting time
     '''
 
     # Open output file to write to
@@ -109,14 +110,24 @@ def print_stat_footer(outfile:str, dcp_file:str, statistics:dict, elapsed_time:f
             if '.dcp' in dir_name:
                 dcp_name = dir_name
                 break
-        design_str = f'Design modelled: {dcp_name}'
+        design_str = f'Design modeled: {dcp_name}'
+
+        # Determine which design query was used in the footer
+        if rpd_used:
+            design_query = 'RapidWright'
+        else:
+            design_query = 'Vivado'
+        design_query_str = f'Design query used: {design_query}'
+
 
         design_beg_div = '=' * 70
         design_offset = ' ' * (35 - int(len(design_str) / 2))
+        design_query_offset = ' ' * (35 - int(len(design_query_str) / 2))
         design_cls_div = '-' * 70
 
         out_f.write(f'\n{design_beg_div}\n')
         out_f.write(f'{design_offset}{design_str}\n')
+        out_f.write(f'{design_query_offset}{design_query_str}\n')
 
         min_elapsed = int(elapsed_time/60)
         out_f.write(f'\t\t\t\tTotal time elapsed: {elapsed_time} sec\t({min_elapsed} min)\n')

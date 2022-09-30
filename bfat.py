@@ -352,7 +352,7 @@ def main(args):
 
     # Calculate and print fault bit statistics
     print('Printing Statistical Footer...')
-    print_stat_footer(outfile, args.dcp_file, statistics, round(time.perf_counter()-t_start, 2))
+    print_stat_footer(outfile, args.dcp_file, args.rapidwright, statistics, round(time.perf_counter()-t_start, 2))
 
 if __name__ == '__main__':
     import argparse
