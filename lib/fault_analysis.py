@@ -28,7 +28,6 @@ import copy
 from lib.define_bit import Bit, bit_bitstream_addr
 from lib.design_query import DesignQuery
 from lib.tile import Tile
-from bitread import get_frame_list
 
 class FaultBit(Bit):
     '''
@@ -40,9 +39,7 @@ class FaultBit(Bit):
 
                 addr - the bit's address within the tile
 
-                resource - the physical resource influenced by the bit
-
-                function - the function/role of the bit in the resource
+                phys_functions - the bit's functions as found in the Project X-Ray database
 
                 type - the type of Single Bit Upset (SBU) caused by the fault bit (driven high/low)
 
@@ -61,14 +58,13 @@ class FaultBit(Bit):
         self.bit = bit.bit
         self.tile = bit.tile
         self.addr = bit.addr
-        self.resource = bit.resource
-        self.function = bit.function
+        self.phys_fctns = bit.phys_fctns
 
         # Add FaultBit specific attributes
         # Select fault type based on the bit's presence in design bits
         if self.bit in design_bits:
             self.type = '1->0'
-        # If the bit address could be found, make sure that the bit has a valid frame address
+        # If the bit address could not be found, make sure that the bit has a valid frame address
         elif self.bit.split('_')[1] in frame_list:
             self.type = '0->1'
         else:
@@ -77,7 +73,7 @@ class FaultBit(Bit):
         self.design_name = 'NA'
         self.affected_rsrcs = ['NA']
         self.affected_pips = ['NA']
-        self.failure = 'fault evaluation not yet supported for this bit'
+        self.failure = 'Fault evaluation not yet supported for this bit'
 
         # Update design name and affected resources with design data
         self.update_with_design_info(design)
@@ -118,8 +114,7 @@ class FaultBit(Bit):
         out_str = f'{self.bit}\n'
         out_str += f'\tTile: {self.tile}\n'
         out_str += f'\tAddress: {self.addr}\n'
-        out_str += f'\tResource: {self.resource}\n'
-        out_str += f'\tFunction: {self.function}\n'
+        out_str += f'\tPhysical Functions:{self.phys_fctns}\n'
         out_str += f'\tType: {self.type}\n'
         out_str += f'\tDesign Name: {self.design_name}\n'
         out_str += f'\tAffected Resources: {self.affected_rsrcs}\n'
@@ -127,10 +122,14 @@ class FaultBit(Bit):
         out_str += f'\tFailure: {self.failure}'
 
         return out_str
+        
+    ##################################################
+    #           Design Info Update Functions         #
+    ##################################################
     
     def update_with_design_info(self, design:DesignQuery):
         '''
-            Updates the FaultBit's stored data with the info form the given design
+            Updates the FaultBit's stored data with the info from the given design
                 Arguments: Query of the design
         '''
 
@@ -139,52 +138,62 @@ class FaultBit(Bit):
             self.affected_rsrcs = possible_aff_rsrcs(self.tile, design)
 
         else:
-            # Update fault bit values for bits from INT tiles
+            # Update fault bit values depending on the bit's tile
             if 'INT_L' in self.tile or 'INT_R' in self.tile:
-                mux_name = self.resource.split(' ')[0]
-                self.design_name = f'{self.tile}/{mux_name}'
-                net = design.get_net(self.tile, mux_name)
-
-                # Find the resources affected by the bit's net if it has one
-                if net and net != 'NA':
-                    self.affected_rsrcs = design.get_affected_rsrcs(net, self.tile, mux_name)
-                else:
-                    self.affected_rsrcs = ['No affected resources found']
-
-            # Update fault bit values for bits from CLB tiles
-            elif 'CLB' in self.tile and '.' not in self.resource:
-                site_name = get_global_site(self.resource, self.tile, design)
-
-                # Attempt to get affected resources within this site if it is used
-                if site_name != 'NA':
-                    self.affected_rsrcs = design.get_CLB_affected_resources(site_name, self.function)
-
-                # Revise bit object attributes
-                self.resource = f'{self.resource}.{self.function}'
-                self.function = 'Configuration'
-                if self.affected_rsrcs and 'NA' not in self.affected_rsrcs:
-                    self.design_name = self.resource.split('.')[1]
-                else:
-                    self.fault = 'Not able to find any errors'
-
-            # Update fault bit values for all other defined fault bits
-            else:
-                # Get the site and bel name from the resource
-                rsrc_elements = self.resource.split('.')
-                rsrc_site = rsrc_elements[0]
-                rsrc_bel = rsrc_elements[-1]
-
-                # Get the full site address from the tile and the site offset
-                site_name = get_global_site(rsrc_site, self.tile, design)
-                
-                # Find the cell within the site that matches the bit's bel
-                if site_name != 'NA':
-                    self.design_name = get_site_related_cells(self.tile, site_name, rsrc_bel, design)
-                    self.affected_rsrcs = self.design_name.split(', ')
+                self.__get_design_info_INT(design)
+            elif 'CLB' in self.tile:
+                self.__get_design_info_CLB(design)
 
             # Give default value for affected resources if no specific resources are found
             if not self.affected_rsrcs or (len(self.affected_rsrcs) <= 1 and 'NA' in self.affected_rsrcs):
                 self.affected_rsrcs = ['No affected resources found']
+
+    def __get_design_info_CLB(self, design:DesignQuery):
+        '''
+            Helper function for design info updating for bits in CLB tiles
+                Arguments: Query of the design
+        '''
+
+        # For CLB bits with multiple functions, all functions just control one element.
+        # Arbitrarily use the first function in the list.
+        function = self.phys_fctns[0]
+        
+        # Get the full site address from the tile and site offset
+        fctn_site = function[0]
+        site_name = get_global_site(fctn_site, self.tile, design)
+
+        # Attempt to find affected resources if the site exists and is used
+        if site_name != 'NA':
+            # Standard CLB fault bit value updating
+            if len(function) == 3:
+                fctn_bel = function[1]
+                self.design_name = get_site_related_cells(self.tile, site_name, fctn_bel, design)
+                self.affected_rsrcs = self.design_name.split(', ')
+
+            # Special CLB fault bit value updating for functions that don't correspond to a BEL
+            # which can have a cell mapped to it
+            elif len(function) == 2:
+                # Attempt to get affected resources within this site if it is used
+                if site_name != 'NA':
+                    self.design_name = function[1]
+                    self.affected_rsrcs = design.get_CLB_affected_resources(site_name, function[1])
+
+    def __get_design_info_INT(self, design:DesignQuery):
+        '''
+            Helper function for design info updating for bits in INT tiles
+                Arguments: Query of the design
+        '''
+        # Extract the name of the mux from the bit's physical function
+        mux_name = self.phys_fctns[0][0].split(' ')[0]
+        self.design_name = f'{self.tile}/{mux_name}'
+
+        # Get the net that routes through the mux
+        net = design.get_net(self.tile, mux_name)
+
+        # Find the resources affected by the bit's net if it has one
+        if net and net != 'NA':
+            self.affected_rsrcs = design.get_affected_rsrcs(net, self.tile, mux_name)
+
 
 ##################################################
 #          Bit Group Analysis Functions          #
@@ -221,7 +230,7 @@ def analyze_bit_group(group_bits:list, frame_list:list, tilegrid:dict, tile_imgs
             if fb.design_name == 'NA':
                 fb.failure = f'No instanced resource found for this bit'
             else:
-                fb.failure = f'{fb.function} bit altered for {fb.design_name}'
+                fb.failure = f'{fb.phys_fctns[0][-1]} bit altered for {fb.design_name}'
         
         # Add the bit to the collection of fault bits
         fault_bits[fb.bit] = copy.deepcopy(fb)
@@ -235,7 +244,8 @@ def analyze_bit_group(group_bits:list, frame_list:list, tilegrid:dict, tile_imgs
 
         # Add each affected routing mux to a list
         for tb in int_tiles[tile]:
-            affected_muxes.add(tb.resource.split(' ')[0])
+            mux_name = tb.phys_fctns[0][0].split(' ')[0]
+            affected_muxes.add(mux_name)
 
         # Set config bits in each routing mux to their values from the design
         for mux in affected_muxes:
@@ -460,7 +470,7 @@ def eval_INT_tile(tile:Tile, muxes:set, int_fault_bits:dict, design_bits:list, t
         for bit in tile_fault_bits:
             # Check if each fault bit is associated with the current routing mux before
             # applying the fault message
-            if mux in bit.resource:
+            if mux in bit.phys_fctns[0][0]:
                 tile_report[bit.bit] = [fault_desc, mux_affected_pips[bit.bit]]
 
     return tile_report
@@ -494,11 +504,11 @@ def get_connected_srcs(tile:Tile, sink_nd:str, design:DesignQuery):
             connected_srcs.add(src_nd)
 
     # Check if the sink node actually connects to VCC or GND
-    if sink_nd in tile.special_pips:
+    if sink_nd in tile.pseudo_pips:
         # Iterate through each source node of the current sink node in the special pips dictionary
-        for src_nd in tile.special_pips[sink_nd]:
+        for src_nd in tile.pseudo_pips[sink_nd]:
             # If the pip is marked as "default", make sure all config bits for the mux are off
-            if tile.special_pips[sink_nd][src_nd] == 'default':
+            if tile.pseudo_pips[sink_nd][src_nd] == 'default':
                 # Gather related bits to the mux in a set and make sure all bits are off
                 col_bits = set(tile.resources[sink_nd].col_bits)
                 row_bits = set(tile.resources[sink_nd].row_bits)

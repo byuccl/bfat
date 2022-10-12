@@ -211,7 +211,22 @@ def print_bit_group_section(section_name:str, section_bits, outfile:TextIOWrappe
             # Print out the information for each fault bit in the current bit group
             for sb in section_bits:
                 outfile.write(f'{sb.bit} ({sb.type})\n')
-                outfile.write(f'\t{sb.tile} - {sb.resource} - {sb.function}\n')
+
+                # If the bit has more than one function, print them all under a header
+                if len(sb.phys_fctns) > 1:
+                    outfile.write('\tBit Functions:\n')
+                    # Iterate through and print all bit functions
+                    for fctn in sb.phys_fctns:
+                        # Convert the bit function to a dash-seperated string
+                        bit_fctn_str = ' - '.join(fctn)
+                        outfile.write(f'\t\t{sb.tile} - {bit_fctn_str}\n')
+
+                # Otherwise, just print the function
+                else:
+                    # Convert the bit function to a dash-seperated string
+                    bit_fctn_str = ' - '.join(sb.phys_fctns[0])
+                    outfile.write(f'\t{sb.tile} - {bit_fctn_str}\n')
+
                 outfile.write(f'\tResource Design Name: {sb.design_name}\n')
 
                 # Change some net names in the fault message for consistency
@@ -256,7 +271,11 @@ def print_bit_group_section(section_name:str, section_bits, outfile:TextIOWrappe
             # Print out each non-failure bit and bit information
             for sb in section_bits:
                 outfile.write(f'{sb.bit} ({sb.type}): ')
-                outfile.write(' - '.join([sb.tile, sb.resource, sb.function, sb.design_name]))
+                
+                # Convert the bit function to a dash-seperated string
+                bit_fctn_str = ' - '.join(sb.phys_fctns[0])
+                outfile.write(' - '.join([sb.tile, bit_fctn_str, sb.design_name]))
+                
                 outfile.write('\n')
                 outfile.write(f'\t{sb.failure}\n')
             outfile.write('\n')

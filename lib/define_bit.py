@@ -34,9 +34,7 @@ class Bit:
 
                 addr - the bit's address within the influenced tile
 
-                resource - the physical resource influenced by the bit
-
-                function - the function/role of the bit in the resource
+                phys_fctns - the bit's functions as found in the Project X-Ray database
     '''
 
     def __init__(self, bitstream_addr:str, tilegrid:dict, tile_imgs:dict):
@@ -44,8 +42,7 @@ class Bit:
         self.bit = bitstream_addr
         self.tile = 'NA'
         self.addr = 'NA'
-        self.resource = 'NA'
-        self.function = 'NA'
+        self.phys_fctns = []
 
         # Use the database to define the bit
         self.define_bit(tilegrid, tile_imgs)
@@ -66,7 +63,7 @@ class Bit:
         else:
             self.tile = potential_tiles
 
-        # Associate the bit with its resources and function(s) if a tile address was found
+        # Associate the bit with its physical resources/functions if a tile address was found
         if self.tile and self.tile != 'NA' and type(self.tile) != list:
             t_tp = self.tile[:self.tile.find('_X')]
 
@@ -76,38 +73,33 @@ class Bit:
                 for mux_name, mux in tile_imgs[t_tp].resources.items():
                     # Identify if the bit is in the row bits or column bits for the routing mux
                     if self.addr in mux.row_bits:
-                        self.resource = f'{mux_name} {mux.mux_type} Routing Mux'
-                        self.function = 'Row Bit'
+                        mux_str = f'{mux_name} {mux.mux_type} Routing Mux'
+                        bit_type = 'Row Bit'
+                        self.phys_fctns.append([mux_str, bit_type])
                         break
                     elif self.addr in mux.col_bits:
-                        self.resource = f'{mux_name} {mux.mux_type} Routing Mux'
-                        self.function = 'Column Bit'
+                        mux_str = f'{mux_name} {mux.mux_type} Routing Mux'
+                        bit_type = 'Column Bit'
+                        self.phys_fctns.append([mux_str, bit_type])
                         break
 
-            # Separate association of BRAM initialization bits and other bits
+            # Seperate association of BRAM data initialization bits from other bits
             elif 'BRAM' in t_tp and bus_val == 0:
                 # Check if the bit matches the intialization bit of a BRAM resource
-                for curr_rsrc, rsrc_bit in tile_imgs[t_tp].init_resources.items():
-                    # If the bit matches, get the resource and function
-                    if rsrc_bit == self.addr:
-                        rsrc_elements = curr_rsrc.split('.')
-                        self.resource = '.'.join(rsrc_elements[:-1])
-                        self.function = rsrc_elements[-1]
-                        break
-                    
+                for curr_fctn, fctn_bit in tile_imgs[t_tp].init_resources.items():
+                    # If the bit matches, add the resource to the bit's function list
+                    if fctn_bit == self.addr:
+                        fctn_list = curr_fctn.split('.')
+                        self.phys_fctns.append(fctn_list)
+            
+            # Standard bit resource association
             else:
-                # Search for the bit in each resource for the given tile
-                for curr_rsrc, rsrc_bits in tile_imgs[t_tp].resources.items():
-                    # Set rsrc and fctn if bit address is found in the resource bits
-                    if any([bit.replace('!', '') == self.addr for bit in rsrc_bits]):
-                        rsrc_elements = curr_rsrc.split('.')
-                        self.resource = '.'.join(rsrc_elements[:-1])
-                        self.function = rsrc_elements[-1]
-                        break
-
-            # Handle duplicate bit function
-            if self.function == 'NOCLKINV':
-                self.function = 'CLKINV'
+                # Search for the bit in each function for the given tile
+                for curr_fctn, fctn_bits in tile_imgs[t_tp].resources.items():
+                    # Add bit to bit functions if bit address is found in the function bits
+                    if any([bit.replace('!', '') == self.addr for bit in fctn_bits]):
+                        fctn_list = curr_fctn.split('.')
+                        self.phys_fctns.append(fctn_list)
 
     def __str__(self):
         '''
@@ -117,8 +109,7 @@ class Bit:
         out_str = f'{self.bit}\n'
         out_str += f'\tTile: {self.tile}\n'
         out_str += f'\tAddress: {self.addr}\n'
-        out_str += f'\tResource: {self.resource}\n'
-        out_str += f'\tFunction: {self.function}'
+        out_str += f'\tPhysical Functions:{self.phys_fctns}\n'
 
         return out_str
 

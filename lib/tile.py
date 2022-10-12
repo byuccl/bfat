@@ -45,6 +45,10 @@ class Tile:
                 pips (INT specific) - dictionary of the pips in the INT switchbox and the
                                       configuration bits needed to activate them
 
+                pseudo_pips (INT specific) - dictionary of special pips in the INT switchbox
+                                             that have different configuration requirements
+                                             than a set of configuration bits being on/off
+
                 cnxs (INT specific) - dictionary of the connections formed through activated
                                       pips in the INT switchbox
     '''
@@ -59,7 +63,7 @@ class Tile:
         # Interconnect-specific Variables and Population (Possible pips and Connections formed)
         if self.type in ('INT_L', 'INT_R'):
             self.pips = {}          # {sink : {src : [bit_config]}}
-            self.special_pips = {}  # {sink : {src : config_type}}
+            self.pseudo_pips = {}   # {sink : {src : config_type}}
             self.cnxs = {}          # {src : [sinks]}
             self.populate_tile(part)
             self.resources.update({sink : RTMux(sink, self.pips[sink]) for sink in self.pips})
@@ -324,10 +328,10 @@ class Tile:
 
                         # Add the current PIP and its configuration type to the tile's pips
                         try:
-                            self.special_pips[sink][src] = pip_type
+                            self.pseudo_pips[sink][src] = pip_type
                         except KeyError:
-                            self.special_pips[sink] = {}
-                            self.special_pips[sink][src] = pip_type
+                            self.pseudo_pips[sink] = {}
+                            self.pseudo_pips[sink][src] = pip_type
 
 
 class RTMux:
