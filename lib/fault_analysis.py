@@ -28,7 +28,6 @@ import copy
 from lib.define_bit import Bit, bit_bitstream_addr
 from lib.design_query import DesignQuery
 from lib.tile import Tile
-from bitread import get_frame_list
 
 class FaultBit(Bit):
     '''
