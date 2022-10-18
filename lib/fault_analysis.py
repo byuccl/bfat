@@ -50,6 +50,8 @@ class FaultBit(Bit):
                 affected_pips - the PIP(s) affected by the bit and its design failure
 
                 failure - description of the design failure caused by the bit
+
+                note - any special notes to be recorded and printed about the bit
     '''
 
     # Init from corresponding Bit object
@@ -74,6 +76,7 @@ class FaultBit(Bit):
         self.affected_rsrcs = ['NA']
         self.affected_pips = ['NA']
         self.failure = 'Fault evaluation not yet supported for this bit'
+        self.note = 'NA'
 
         # Update design name and affected resources with design data
         self.update_with_design_info(design)
@@ -119,7 +122,8 @@ class FaultBit(Bit):
         out_str += f'\tDesign Name: {self.design_name}\n'
         out_str += f'\tAffected Resources: {self.affected_rsrcs}\n'
         out_str += f'\tAffected PIPs: {self.affected_pips}\n'
-        out_str += f'\tFailure: {self.failure}'
+        out_str += f'\tFailure: {self.failure}\n'
+        out_str += f'\tNote: {self.note}\n'
 
         return out_str
         
@@ -143,10 +147,29 @@ class FaultBit(Bit):
                 self.__get_design_info_INT(design)
             elif 'CLB' in self.tile:
                 self.__get_design_info_CLB(design)
+            elif 'IOI3' in self.tile:
+                self.__get_design_info_IOI3(design)
 
             # Give default value for affected resources if no specific resources are found
             if not self.affected_rsrcs or (len(self.affected_rsrcs) <= 1 and 'NA' in self.affected_rsrcs):
                 self.affected_rsrcs = ['No affected resources found']
+
+    def __get_design_info_INT(self, design:DesignQuery):
+        '''
+            Helper function for design info updating for bits in INT tiles
+                Arguments: Query of the design
+        '''
+
+        # Extract the name of the mux from the bit's physical function
+        mux_name = self.phys_fctns[0][0].split(' ')[0]
+        self.design_name = f'{self.tile}/{mux_name}'
+
+        # Get the net that routes through the mux
+        net = design.get_net(self.tile, mux_name)
+
+        # Find the resources affected by the bit's net if it has one
+        if net and net != 'NA':
+            self.affected_rsrcs = design.get_affected_rsrcs(net, self.tile, mux_name)
 
     def __get_design_info_CLB(self, design:DesignQuery):
         '''
@@ -178,22 +201,64 @@ class FaultBit(Bit):
                     self.design_name = function[1]
                     self.affected_rsrcs = design.get_CLB_affected_resources(site_name, function[1])
 
-    def __get_design_info_INT(self, design:DesignQuery):
+        # Set failure message according to if a design resource was found or not
+        if self.design_name == 'NA':
+            self.failure = f'No instanced resource found for this bit'
+        else:
+            self.failure = f'{self.phys_fctns[0][-1]} bit altered for {self.design_name}'
+
+    def __get_design_info_IOI3(self, design:DesignQuery):
         '''
-            Helper function for design info updating for bits in INT tiles
+            Helper function for design info updating for bits in IOI3 tiles
                 Arguments: Query of the design
         '''
-        # Extract the name of the mux from the bit's physical function
-        mux_name = self.phys_fctns[0][0].split(' ')[0]
-        self.design_name = f'{self.tile}/{mux_name}'
 
-        # Get the net that routes through the mux
-        net = design.get_net(self.tile, mux_name)
+        # Choose the first function, since they all control one element
+        function = self.phys_fctns[0]
+        
+        # Check if the function is actually a pip related to the clock routing
+        if 'IOI' in function[0]:
+            # Get the sink node of the pip and the net that runs through the pip
+            sink_wire = function[0]
+            pip_net = design.get_net(self.tile, sink_wire)
 
-        # Find the resources affected by the bit's net if it has one
-        if net and net != 'NA':
-            self.affected_rsrcs = design.get_affected_rsrcs(net, self.tile, mux_name)
+            # Trace the affected resources if there is a net at this node
+            if pip_net and pip_net != 'NA':
+                self.affected_rsrcs = design.get_affected_rsrcs(pip_net, self.tile, sink_wire)
+                self.failure = f'Faults occurred in net: {pip_net}'
+            else:
+                self.failure = 'Not able to find any failures caused by this fault'
 
+            # Revise bit fields to mimic the standard routing bit format
+            self.phys_fctns = [[f'{sink_wire} 3-15 Routing Mux']]
+            self.design_name = f'{self.tile}/{sink_wire}'
+
+        # Standard bit function format
+        else:
+            # Get the full site address from the tile and site offset
+            fctn_site = function[0]
+            site_name = get_global_site(fctn_site, self.tile, design)
+
+            # Attempt to find affected resources if the site exists and is used
+            if site_name != 'NA':
+                # Query cells in the tile and get all cells in the site
+                design.query_cells(self.tile)
+                cells = list(design.cells[self.tile][site_name].values())
+
+                # Update bit fields if cells are found in the site
+                if cells and '<LOCKED>' not in cells:
+                    # Update design name and affected resources
+                    self.design_name = ', '.join(cells)
+                    self.affected_rsrcs = cells
+                    self.failure = f'Above function(s) affected for {self.design_name}*'
+                    
+                    # Make a note about how the results may be inaccurate
+                    self.note =  '* At the moment BFAT is not programmed to determine the exact'
+                    self.note += ' effects of every RIO/LIO function -- these design resources'
+                    self.note += ' are only a prediction based off of the site that the bit affects'
+                else:
+                    self.failure = 'No instanced resource found for this bit'
+            
 
 ##################################################
 #          Bit Group Analysis Functions          #
@@ -224,13 +289,6 @@ def analyze_bit_group(group_bits:list, frame_list:list, tilegrid:dict, tile_imgs
             except KeyError:
                 int_tiles[fb.tile] = []
                 int_tiles[fb.tile].append(fb)
-        
-        elif 'CLB' in fb.tile:
-            # Set failure message according to if a design resource was found or not
-            if fb.design_name == 'NA':
-                fb.failure = f'No instanced resource found for this bit'
-            else:
-                fb.failure = f'{fb.phys_fctns[0][-1]} bit altered for {fb.design_name}'
         
         # Add the bit to the collection of fault bits
         fault_bits[fb.bit] = copy.deepcopy(fb)

@@ -40,6 +40,7 @@
 import time
 from io import TextIOWrapper
 from tqdm import tqdm
+from textwrap import wrap
 
 from lib.tile import Tile
 from lib.file_processing import parse_tilegrid, parse_fault_bits, parse_design_bits
@@ -112,13 +113,14 @@ def gen_tcl_cmds(bit:FaultBit, outfile:TextIOWrapper):
 
     outfile.write('\n\tVivado Tcl Commands:\n')
 
-    # Get the nets and pips from the fault bit's fault info and add them to
-    # the generated tcl command to select them in Vivado
-    if 'INT' in bit.tile and ('Opens' in bit.failure or 'Shorts' in bit.failure):
+    # Print additional Tcl commands for pips and nets if this is a routing fault
+    if 'Opens' in bit.failure or 'Shorts' in bit.failure or 'Faults' in bit.failure:
         
-        # Print the tcl command for selecting the affected pips
-        reformatted_pips = [f'{bit.tile}/{tile_type}.{pip.split(" ")[0]}' for pip in bit.affected_pips]
-        outfile.write(f'\t\tselect_objects [get_pips {{{" ".join(sorted(reformatted_pips))}}}]\n')
+        # Only print pips if this is an INT tile
+        if 'INT' in bit.tile:
+            # Print the tcl command for selecting the affected pips
+            reformatted_pips = [f'{bit.tile}/{tile_type}.{pip.split(" ")[0]}' for pip in bit.affected_pips]
+            outfile.write(f'\t\tselect_objects [get_pips {{{" ".join(sorted(reformatted_pips))}}}]\n')
 
         msg_nets = []
 
@@ -246,6 +248,12 @@ def print_bit_group_section(section_name:str, section_bits, outfile:TextIOWrappe
                 # Print each affected resource in an indented list of 1 per line
                 for aff_rsrc in sorted(sb.affected_rsrcs):
                     outfile.write(f'\t\t{aff_rsrc}\n')
+
+                # Print a text-wrapped note if one was logged for the bit
+                if sb.note != 'NA':
+                    wrap_len = 70
+                    note_wrapped = '\n\t'.join(wrap(sb.note, wrap_len))
+                    outfile.write(f'\n\t{note_wrapped}\n')
 
                 gen_tcl_cmds(sb, outfile)
 
