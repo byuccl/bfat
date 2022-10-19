@@ -44,6 +44,7 @@ class Statistics:
                       'INT Fault Bits',
                       'CLB Fault Bits',
                       'IOI3 Fault Bits',
+                      'HCLK Fault Bits',
                       'Non-Failure Fault Bits',
                       'Undefined Fault Bits',
                       'Bits Driven High',
@@ -53,7 +54,8 @@ class Statistics:
                       'PIP Short Errors',
                       'CLB Altered Bit Errors',
                       'IOI3 Altered Bit Errors',
-                      'IOI3 Routing Errors']
+                      'IOI3 Routing Errors',
+                      'HCLK Routing Errors']
 
         # Create and initialize an entry in the stats dictionary for each stat to be counted
         for stat in self.order:
@@ -167,6 +169,8 @@ def get_bit_group_stats(group_bits:dict, print_flag = False, outfile: TextIOWrap
             group_stats.stats['CLB Fault Bits'] += 1
         elif 'IOI3' in fb.tile:
             group_stats.stats['IOI3 Fault Bits'] += 1
+        elif 'HCLK' in fb.tile:
+            group_stats.stats['HCLK Fault Bits'] += 1
 
         # Update the statistics based on the current fault bit's change
         if fb.type == '0->1':
@@ -192,6 +196,10 @@ def get_bit_group_stats(group_bits:dict, print_flag = False, outfile: TextIOWrap
             error_in_group = True
         elif 'IOI3' in fb.tile and 'Faults occurred in net' in fb.failure:
             group_stats.stats['IOI3 Routing Errors'] += 1
+            group_stats.stats['Found Errors'] += 1
+            error_in_group = True
+        elif ('HCLK_L' in fb.tile or 'HCLK_R' in fb.tile) and 'Faults occurred in net' in fb.failure:
+            group_stats.stats['HCLK Routing Errors'] += 1
             group_stats.stats['Found Errors'] += 1
             error_in_group = True
         elif 'Opens created' in fb.failure and 'Shorts formed' not in fb.failure:
@@ -234,6 +242,7 @@ def print_bit_group_stats(outfile:TextIOWrapper, group_stats:Statistics):
     errors_found += group_stats.stats['CLB Altered Bit Errors']
     errors_found += group_stats.stats['IOI3 Altered Bit Errors']
     errors_found += group_stats.stats['IOI3 Routing Errors']
+    errors_found += group_stats.stats['HCLK Routing Errors']
 
     error_rate = round((errors_found/group_stats.stats['Fault Bits'])*100, 2)
 

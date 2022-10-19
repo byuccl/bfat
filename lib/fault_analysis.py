@@ -149,6 +149,8 @@ class FaultBit(Bit):
                 self.__get_design_info_CLB(design)
             elif 'IOI3' in self.tile:
                 self.__get_design_info_IOI3(design)
+            elif 'HCLK_L' in self.tile or 'HCLK_R' in self.tile:
+                self.__get_design_info_HCLK(design)
 
             # Give default value for affected resources if no specific resources are found
             if not self.affected_rsrcs or (len(self.affected_rsrcs) <= 1 and 'NA' in self.affected_rsrcs):
@@ -218,14 +220,14 @@ class FaultBit(Bit):
         
         # Check if the function is actually a pip related to the clock routing
         if 'IOI' in function[0]:
-            # Get the sink node of the pip and the net that runs through the pip
+            # Get the sink node of the pip and the net that uses that sink node
             sink_wire = function[0]
-            pip_net = design.get_net(self.tile, sink_wire)
+            sink_net = design.get_net(self.tile, sink_wire)
 
             # Trace the affected resources if there is a net at this node
-            if pip_net and pip_net != 'NA':
-                self.affected_rsrcs = design.get_affected_rsrcs(pip_net, self.tile, sink_wire)
-                self.failure = f'Faults occurred in net: {pip_net}'
+            if sink_net and sink_net != 'NA':
+                self.affected_rsrcs = design.get_affected_rsrcs(sink_net, self.tile, sink_wire)
+                self.failure = f'Faults occurred in net: {sink_net}'
             else:
                 self.failure = 'Not able to find any failures caused by this fault'
 
@@ -259,6 +261,66 @@ class FaultBit(Bit):
                 else:
                     self.failure = 'No instanced resource found for this bit'
             
+    def __get_design_info_HCLK(self, design:DesignQuery):
+        '''
+            Helper function for design info updating for bits in HCLK tiles
+                Arguments: Query of the design
+        '''
+
+        # Analyze the first function, since they all control one element
+        function = self.phys_fctns[0]
+
+        # If this function is a pip, get downstream resources of the net
+        if function[0] != 'ENABLE_BUFFER':
+            # Get the sink node of the pip and the net that runs through the pip
+            sink_wire = function[0]
+            sink_net = design.get_net(self.tile, sink_wire)
+
+            # Trace the affected resources if there is a net at this node
+            if sink_net and sink_net != 'NA':
+                self.affected_rsrcs = design.get_affected_rsrcs(sink_net, self.tile, sink_wire)
+                self.failure = f'Faults occurred in net: {sink_net}'
+            else:
+                self.failure = 'Not able to find any failures caused by this fault'
+
+            # Revise bit fields to mimic the standard routing bit format
+            self.phys_fctns = [[f'{sink_wire} 2-16 Routing Mux']]
+            self.design_name = f'{self.tile}/{sink_wire}'
+
+        # Special handling for ENABLE_BUFFER bits
+        else:
+            # Get the buffer input wire
+            src_wire = function[1]
+
+            # Find the wire index number in the source's string
+            for char in src_wire:
+                if char.isnumeric():
+                    first_digit_index = src_wire.find(char)
+                    break
+            src_wire_index = int(src_wire[first_digit_index:])
+
+            # Determine the buffer sink used from the source depending on the tile
+            if 'HCLK_L' in self.tile:
+                # Sink wire index is 8 less than the source wire index
+                sink_wire = f'HCLK_CK_INOUT_L{src_wire_index - 8}'
+            elif 'HCLK_R' in self.tile:
+                # Sink wire index is equal to the source wire index
+                sink_wire = f'HCLK_CK_INOUT_R{src_wire_index}'
+
+            sink_net = design.get_net(self.tile, sink_wire)
+
+            # Trace the affected resources if there is a net at this node
+            if sink_net and sink_net != 'NA':
+                self.affected_rsrcs = design.get_affected_rsrcs(sink_net, self.tile, sink_wire)
+                self.failure = f'Faults occurred in net: {sink_net}'
+            else:
+                self.failure = 'Not able to find any failures caused by this fault'
+
+            # Revise bit fields to mimic the standard routing bit format
+            self.phys_fctns = [[f'{sink_wire} Buffer']]
+            self.design_name = f'{self.tile}/{sink_wire}'
+            self.affected_pips = [f'{src_wire}->>{sink_wire}']
+
 
 ##################################################
 #          Bit Group Analysis Functions          #
