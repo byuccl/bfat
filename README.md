@@ -13,8 +13,8 @@ BFAT consists of the following scripts:
 
 Scripts included from the local library:
 
-- `bit_definitions.py`: Uses created dataclasses and program arguments to define and evaluate each of the given fault bits.
-- `design_query.py` : Deals with querying design information from its .dcp checkpoint file and includes the default implementation using Vivado.
+- `define_bit.py`: Correlates fault bits to their physical functions in the FPGA fabric using the Project X-Ray database
+- `fault_analysis.py` Uses the physical functions found for each fault bit to analyze the effect on the design from an upset.
 - `file_processing.py`: Deals with all external file reading and parsing.
 - `rpd_query.py`: Deals with querying the design information from its .dcp checkpoint file using the Rapidwright tool.
 - `statistics.py`: Reads the report data for the design and adds a footer at the end of the report file to report some statistics of the design and faults found.
