@@ -270,7 +270,7 @@ def test_bfat(dcp):
         for grp, grp_secs in test_report.items():
             assert grp in ctrl_report
 
-            # Test each section in the curren bit group against the control
+            # Test each section in the current bit group against the control
             for sec, sec_bits in grp_secs.items():
                 assert sec in ctrl_report[grp]
                 assert len(sec_bits) == ctrl_report[grp][sec]['num_bits']
@@ -419,7 +419,7 @@ def parse_fault_report_contents(fault_report:str):
     with open(fault_report) as fr:
         line = ''
         # Read in bit groups until the statistics footer starts
-        while 'Design modelled' not in line:
+        while 'Design modeled' not in line:
             line = fr.readline()
             # Parse in info for bit group when one is found
             if 'Bit Group' in line:
@@ -446,7 +446,10 @@ def parse_fault_report_contents(fault_report:str):
                         if section == 'Failure':
                             # Parse in bit info from the next few lines
                             bit, fault_type = line.strip().split(' ')
-                            tile, resource, fctn = fr.readline().strip().split(' - ')
+
+                            function_line = fr.readline().strip().split(' - ')
+                            tile, phys_fctns = function_line[0], function_line[1:]
+
                             design_name = fr.readline().strip().split(': ')[1]
                             fault = fr.readline().strip()
 
@@ -481,8 +484,7 @@ def parse_fault_report_contents(fault_report:str):
                             # Add parsed bit info to data
                             contents[group][section][bit] = {}
                             contents[group][section][bit]['tile'] = tile
-                            contents[group][section][bit]['resource'] = resource
-                            contents[group][section][bit]['function'] = fctn
+                            contents[group][section][bit]['phys_fctns'] = phys_fctns
                             contents[group][section][bit]['design_name'] = design_name
                             contents[group][section][bit]['type'] = fault_type
                             contents[group][section][bit]['fault'] = fault
@@ -491,13 +493,13 @@ def parse_fault_report_contents(fault_report:str):
                         elif section == 'Non-Failure':
                             # Parse limited bit info from the line
                             bit, bit_info = line.strip().split(': ')
-                            tile, resource, fctn, design_name = bit_info.split(' - ')
+                            bit_info_list = bit_info.split(' - ')
+                            tile, phys_fctns, design_name = bit_info_list[0], bit_info_list[1:-1], bit_info_list[-1]
 
                             # Add parsed bit info to data
                             contents[group][section][bit] = {}
                             contents[group][section][bit]['tile'] = tile
-                            contents[group][section][bit]['resource'] = resource
-                            contents[group][section][bit]['function'] = fctn
+                            contents[group][section][bit]['phys_fctns'] = phys_fctns
                             contents[group][section][bit]['design_name'] = design_name
                         elif section == 'Undefined':
                             # Get bit from line and add it to data
