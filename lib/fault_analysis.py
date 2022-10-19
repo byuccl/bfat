@@ -151,6 +151,8 @@ class FaultBit(Bit):
                 self.__get_design_info_IOI3(design)
             elif 'HCLK_L' in self.tile or 'HCLK_R' in self.tile:
                 self.__get_design_info_HCLK(design)
+            elif 'BRAM' in self.tile:
+                self.__get_design_info_BRAM(design)
 
             # Give default value for affected resources if no specific resources are found
             if not self.affected_rsrcs or (len(self.affected_rsrcs) <= 1 and 'NA' in self.affected_rsrcs):
@@ -320,7 +322,6 @@ class FaultBit(Bit):
             self.phys_fctns = [[f'{sink_wire} Buffer']]
             self.design_name = f'{self.tile}/{sink_wire}'
             self.affected_pips = [f'{src_wire}->>{sink_wire}']
-
 
 ##################################################
 #          Bit Group Analysis Functions          #
