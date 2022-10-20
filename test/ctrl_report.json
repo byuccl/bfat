@@ -3,8 +3,7 @@
         "Failure": {
             "num_bits": 1,
             "tile": "CLB",
-            "resource": "EXISTS",
-            "function": "EXISTS",
+            "phys_fctns": "EXISTS",
             "design_name": "EXISTS",
             "fault": "bit altered"
         }
@@ -13,8 +12,7 @@
         "Failure": {
             "num_bits": 1,
             "tile": "INT",
-            "resource": "EXISTS",
-            "function": "EXISTS",
+            "phys_fctns": "EXISTS",
             "fault": "Opens created"
         }
     },
@@ -22,8 +20,7 @@
         "Failure": {
             "num_bits": 1,
             "tile": "INT",
-            "resource": "EXISTS",
-            "function": "EXISTS",
+            "phys_fctns": "EXISTS",
             "fault": "Shorts formed, !Unconnected Wire"
         }
     },
@@ -31,8 +28,7 @@
         "Failure": {
             "num_bits": 1,
             "tile": "INT",
-            "resource": "EXISTS",
-            "function": "EXISTS",
+            "phys_fctns": "EXISTS",
             "fault": "Shorts formed, Unconnected Wire"
         }
     },
@@ -48,8 +44,7 @@
                 "CLB",
                 "INT"
             ],
-            "resource": "EXISTS",
-            "function": "EXISTS",
+            "phys_fctns": "EXISTS",
             "design_name": [
                 "!EXISTS",
                 "EXISTS"

@@ -33,13 +33,10 @@
 
 import json
 import random
-import os
 import sys
 
-# Add parent directory (bfat) to the path so bitread function can be imported
-p = os.path.abspath('..')
-if p not in sys.path:
-    sys.path.append(p)
+# Add the parent directory of this file (bfat root) to the interpreter's path
+sys.path.append(f'{"/".join(__file__.split("/")[:-1])}/..')
 
 from bitread import get_frame_list
 
@@ -133,9 +130,9 @@ def write_bit_list(essential_bits:list, num_bits:int, ebd_file:str):
 
     fault_bits = []
 
-    # Check that there is more bits in the ll file than the specified number
+    # Check that there is more bits in the ebd file than the specified number
     if num_bits > len(essential_bits):
-        print(f"There is less than {num_bits} useable bits in the provided .ll file.")
+        print(f"There is less than {num_bits} useable bits in the provided .ebd file.")
         num_bits = len(essential_bits)
 
     # Add the specified number of bits to the fault bits list

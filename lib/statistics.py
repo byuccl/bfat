@@ -25,6 +25,7 @@
 '''
 
 from io import TextIOWrapper
+from tokenize import group
 
 class Statistics:
     '''
@@ -40,8 +41,10 @@ class Statistics:
         self.order = ['Bit Groups',             # List of statistics in order
                       'Bit Groups w/ Errors',
                       'Fault Bits',
-                      'Routing Fault Bits',
+                      'INT Fault Bits',
                       'CLB Fault Bits',
+                      'IOI3 Fault Bits',
+                      'HCLK Fault Bits',
                       'Non-Failure Fault Bits',
                       'Undefined Fault Bits',
                       'Bits Driven High',
@@ -49,7 +52,10 @@ class Statistics:
                       'Found Errors',
                       'PIP Open Errors',
                       'PIP Short Errors',
-                      'CLB Altered Bit Errors']
+                      'CLB Altered Bit Errors',
+                      'IOI3 Altered Bit Errors',
+                      'IOI3 Routing Errors',
+                      'HCLK Routing Errors']
 
         # Create and initialize an entry in the stats dictionary for each stat to be counted
         for stat in self.order:
@@ -92,12 +98,13 @@ class Statistics:
             if stat in self.stats:
                 self.stats[stat] += value
 
-def print_stat_footer(outfile:str, dcp_file:str, statistics:dict, elapsed_time:float):
+def print_stat_footer(outfile:str, dcp_file:str, rpd_used:bool, statistics:dict, elapsed_time:float):
     '''
         Reads through the given fault report for the design and calculates significant statistical
         information and prints it all to the end of the provided output file.
-            Arguments: String of output file path, path to the design's dcp file, dict of the
-                       statistics of the entire design, and a float of the program's starting time
+            Arguments: String of output file path, path to the design's dcp file, bool of whether
+                       RapidWright was used, dict of the statistics of the entire design, and a
+                       float of the program's starting time
     '''
 
     # Open output file to write to
@@ -109,14 +116,24 @@ def print_stat_footer(outfile:str, dcp_file:str, statistics:dict, elapsed_time:f
             if '.dcp' in dir_name:
                 dcp_name = dir_name
                 break
-        design_str = f'Design modelled: {dcp_name}'
+        design_str = f'Design modeled: {dcp_name}'
+
+        # Determine which design query was used in the footer
+        if rpd_used:
+            design_query = 'RapidWright'
+        else:
+            design_query = 'Vivado'
+        design_query_str = f'Design query used: {design_query}'
+
 
         design_beg_div = '=' * 70
         design_offset = ' ' * (35 - int(len(design_str) / 2))
+        design_query_offset = ' ' * (35 - int(len(design_query_str) / 2))
         design_cls_div = '-' * 70
 
         out_f.write(f'\n{design_beg_div}\n')
         out_f.write(f'{design_offset}{design_str}\n')
+        out_f.write(f'{design_query_offset}{design_query_str}\n')
 
         min_elapsed = int(elapsed_time/60)
         out_f.write(f'\t\t\t\tTotal time elapsed: {elapsed_time} sec\t({min_elapsed} min)\n')
@@ -147,9 +164,13 @@ def get_bit_group_stats(group_bits:dict, print_flag = False, outfile: TextIOWrap
         if not is_defined:
             group_stats.stats['Undefined Fault Bits'] += 1
         elif 'INT_L' in fb.tile or 'INT_R' in fb.tile:
-            group_stats.stats['Routing Fault Bits'] += 1
+            group_stats.stats['INT Fault Bits'] += 1
         elif 'CLB' in fb.tile:
             group_stats.stats['CLB Fault Bits'] += 1
+        elif 'IOI3' in fb.tile:
+            group_stats.stats['IOI3 Fault Bits'] += 1
+        elif 'HCLK' in fb.tile:
+            group_stats.stats['HCLK Fault Bits'] += 1
 
         # Update the statistics based on the current fault bit's change
         if fb.type == '0->1':
@@ -167,6 +188,18 @@ def get_bit_group_stats(group_bits:dict, print_flag = False, outfile: TextIOWrap
             group_stats.stats['Non-Failure Fault Bits'] += 1
         elif 'CLB' in fb.tile and 'bit altered' in fb.failure:
             group_stats.stats['CLB Altered Bit Errors'] += 1
+            group_stats.stats['Found Errors'] += 1
+            error_in_group = True
+        elif 'IOI3' in fb.tile and 'function(s) affected' in fb.failure:
+            group_stats.stats['IOI3 Altered Bit Errors'] += 1
+            group_stats.stats['Found Errors'] += 1
+            error_in_group = True
+        elif 'IOI3' in fb.tile and 'Faults occurred in net' in fb.failure:
+            group_stats.stats['IOI3 Routing Errors'] += 1
+            group_stats.stats['Found Errors'] += 1
+            error_in_group = True
+        elif ('HCLK_L' in fb.tile or 'HCLK_R' in fb.tile) and 'Faults occurred in net' in fb.failure:
+            group_stats.stats['HCLK Routing Errors'] += 1
             group_stats.stats['Found Errors'] += 1
             error_in_group = True
         elif 'Opens created' in fb.failure and 'Shorts formed' not in fb.failure:
@@ -207,6 +240,9 @@ def print_bit_group_stats(outfile:TextIOWrapper, group_stats:Statistics):
     errors_found += group_stats.stats['PIP Open Errors'] 
     errors_found += group_stats.stats['PIP Short Errors']
     errors_found += group_stats.stats['CLB Altered Bit Errors']
+    errors_found += group_stats.stats['IOI3 Altered Bit Errors']
+    errors_found += group_stats.stats['IOI3 Routing Errors']
+    errors_found += group_stats.stats['HCLK Routing Errors']
 
     error_rate = round((errors_found/group_stats.stats['Fault Bits'])*100, 2)
 

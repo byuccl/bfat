@@ -40,6 +40,7 @@
 import time
 from io import TextIOWrapper
 from tqdm import tqdm
+from textwrap import wrap
 
 from lib.tile import Tile
 from lib.file_processing import parse_tilegrid, parse_fault_bits, parse_design_bits
@@ -112,13 +113,14 @@ def gen_tcl_cmds(bit:FaultBit, outfile:TextIOWrapper):
 
     outfile.write('\n\tVivado Tcl Commands:\n')
 
-    # Get the nets and pips from the fault bit's fault info and add them to
-    # the generated tcl command to select them in Vivado
-    if 'INT' in bit.tile and ('Opens' in bit.failure or 'Shorts' in bit.failure):
+    # Print additional Tcl commands for pips and nets if this is a routing fault
+    if 'Opens' in bit.failure or 'Shorts' in bit.failure or 'Faults' in bit.failure:
         
-        # Print the tcl command for selecting the affected pips
-        reformatted_pips = [f'{bit.tile}/{tile_type}.{pip.split(" ")[0]}' for pip in bit.affected_pips]
-        outfile.write(f'\t\tselect_objects [get_pips {{{" ".join(sorted(reformatted_pips))}}}]\n')
+        # Only print pips if this is an INT tile
+        if 'INT' in bit.tile:
+            # Print the tcl command for selecting the affected pips
+            reformatted_pips = [f'{bit.tile}/{tile_type}.{pip.split(" ")[0]}' for pip in bit.affected_pips]
+            outfile.write(f'\t\tselect_objects [get_pips {{{" ".join(sorted(reformatted_pips))}}}]\n')
 
         msg_nets = []
 
@@ -211,7 +213,22 @@ def print_bit_group_section(section_name:str, section_bits, outfile:TextIOWrappe
             # Print out the information for each fault bit in the current bit group
             for sb in section_bits:
                 outfile.write(f'{sb.bit} ({sb.type})\n')
-                outfile.write(f'\t{sb.tile} - {sb.resource} - {sb.function}\n')
+
+                # If the bit has more than one function, print them all under a header
+                if len(sb.phys_fctns) > 1:
+                    outfile.write('\tBit Functions:\n')
+                    # Iterate through and print all bit functions
+                    for fctn in sb.phys_fctns:
+                        # Convert the bit function to a dash-seperated string
+                        bit_fctn_str = ' - '.join(fctn)
+                        outfile.write(f'\t\t{sb.tile} - {bit_fctn_str}\n')
+
+                # Otherwise, just print the function
+                else:
+                    # Convert the bit function to a dash-seperated string
+                    bit_fctn_str = ' - '.join(sb.phys_fctns[0])
+                    outfile.write(f'\t{sb.tile} - {bit_fctn_str}\n')
+
                 outfile.write(f'\tResource Design Name: {sb.design_name}\n')
 
                 # Change some net names in the fault message for consistency
@@ -232,6 +249,12 @@ def print_bit_group_section(section_name:str, section_bits, outfile:TextIOWrappe
                 for aff_rsrc in sorted(sb.affected_rsrcs):
                     outfile.write(f'\t\t{aff_rsrc}\n')
 
+                # Print a text-wrapped note if one was logged for the bit
+                if sb.note != 'NA':
+                    wrap_len = 70
+                    note_wrapped = '\n\t'.join(wrap(sb.note, wrap_len))
+                    outfile.write(f'\n\t{note_wrapped}\n')
+
                 gen_tcl_cmds(sb, outfile)
 
         elif section_name == 'Undefined Bits':
@@ -243,9 +266,9 @@ def print_bit_group_section(section_name:str, section_bits, outfile:TextIOWrappe
                 # Print each potential tile and its cells for the undefined bit
                 for tile, possible_aff_rsrcs in sorted(sb.affected_rsrcs.items()):
                     outfile.write(f'\t\t{tile}:\n')
-                    for rsrc in sorted(possible_aff_rsrcs):
-                        outfile.write(f'\t\t\t{rsrc}\n')
-                    if possible_aff_rsrcs == []:
+                    for bel, rsrc in sorted(possible_aff_rsrcs.items()):
+                        outfile.write(f'\t\t\t{bel}: {rsrc}\n')
+                    if possible_aff_rsrcs == {}:
                         outfile.write('\t\t\tNo resources found for this tile\n')
 
                 if sb.affected_rsrcs == {}:
@@ -256,7 +279,11 @@ def print_bit_group_section(section_name:str, section_bits, outfile:TextIOWrappe
             # Print out each non-failure bit and bit information
             for sb in section_bits:
                 outfile.write(f'{sb.bit} ({sb.type}): ')
-                outfile.write(' - '.join([sb.tile, sb.resource, sb.function, sb.design_name]))
+                
+                # Convert the bit function to a dash-seperated string
+                bit_fctn_str = ' - '.join(sb.phys_fctns[0])
+                outfile.write(' - '.join([sb.tile, bit_fctn_str, sb.design_name]))
+                
                 outfile.write('\n')
                 outfile.write(f'\t{sb.failure}\n')
             outfile.write('\n')
@@ -352,7 +379,7 @@ def main(args):
 
     # Calculate and print fault bit statistics
     print('Printing Statistical Footer...')
-    print_stat_footer(outfile, args.dcp_file, statistics, round(time.perf_counter()-t_start, 2))
+    print_stat_footer(outfile, args.dcp_file, args.rapidwright, statistics, round(time.perf_counter()-t_start, 2))
 
 if __name__ == '__main__':
     import argparse
