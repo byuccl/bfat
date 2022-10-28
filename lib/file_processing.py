@@ -194,9 +194,18 @@ def parse_fault_bits(json_file:str):
     # Convert to dictionary 
     bit_groups = {}
     for index, bit_group in enumerate(bit_groups_json, 1):
-        # Convert bit addresses to all lowercase
-        lower_bit_group = [[num.lower() for num in bit] for bit in bit_group]
-        bit_groups[index] = lower_bit_group
+        bit_group_format = []
+
+        # Convert bit addresses to all lowercase and zero fill
+        for bit in bit_group:
+            frame_addr = bit[0].lower().zfill(8)
+            word_offset = bit[1].zfill(3)
+            bit_offset = bit[2].zfill(2)
+
+            bit_group_format.append([frame_addr, word_offset, bit_offset])
+
+        # Add formatted bit group to the dictionary
+        bit_groups[index] = bit_group_format
 
     return bit_groups
 
