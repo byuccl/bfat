@@ -567,17 +567,10 @@ def get_global_site(local_site:str, tile:str, design:DesignQuery):
             else:
                 y_off = 0
 
-            # Check each site to see if its address matches the given offset
-            for site in sites:
-                # Get the Y address of the current site 
-                site_y_addr = int(site[(site.find('Y') + 1):])
-
-                # If the address's parity matches the y offset of the given site,
-                # a match has been found (parity is inverted for RIOI3 tiles)
-                if site_y_addr % 2 == y_off and 'IOI3' not in tile:
-                    return site
-                elif site_y_addr % 2 != y_off and 'IOI3' in tile:
-                    return site
+            # Sort the sites by their y address and return the one that matches
+            # the given offset
+            sites = sorted(sites, key=lambda s: int(s[(s.find('Y') + 1):]))
+            return sites[y_off]
 
         # Check for a matching site based off of the X offset
         elif 'X' in site_offset:
@@ -586,17 +579,11 @@ def get_global_site(local_site:str, tile:str, design:DesignQuery):
                 x_off = 1
             else:
                 x_off = 0
-
-            # Check each site to see if its address matches the given offset
-            for site in sites:
-                # Get the Y address of the current site 
-                site_x_addr = int(site[(site.find('X') + 1):site.find('Y')])
-
-                # If the address's parity matches the x offset of the given site,
-                # a match has been found
-
-                if site_x_addr % 2 == x_off:
-                    return site
+            
+            # Sort the sites by their y address and return the one that matches
+            # the given offset
+            sites = sorted(sites, key=lambda s: int(s[(s.find('X') + 1):s.find('Y')]))
+            return sites[x_off]
 
         # Handling for if no offset is given
         elif len(sites) == 1:
