@@ -46,6 +46,7 @@ class Statistics:
                       'IOI3 Fault Bits',
                       'HCLK Fault Bits',
                       'BRAM Fault Bits',
+                      'DSP Fault Bits',
                       'Non-Failure Fault Bits',
                       'Undefined Fault Bits',
                       'Bits Driven High',
@@ -58,7 +59,9 @@ class Statistics:
                       'IOI3 Routing Errors',
                       'HCLK Routing Errors',
                       'BRAM Altered Bit Errors',
-                      'BRAM Routing Errors']
+                      'BRAM Routing Errors',
+                      'DSP Altered Bit Errors',
+                      'DSP Routing Errors']
 
         # Create and initialize an entry in the stats dictionary for each stat to be counted
         for stat in self.order:
@@ -176,6 +179,8 @@ def get_bit_group_stats(group_bits:dict, print_flag = False, outfile: TextIOWrap
             group_stats.stats['HCLK Fault Bits'] += 1
         elif 'BRAM' in fb.tile:
             group_stats.stats['BRAM Fault Bits'] += 1
+        elif 'DSP' in fb.tile:
+            group_stats.stats['DSP Fault Bits'] += 1
 
         # Update the statistics based on the current fault bit's change
         if fb.type == '0->1':
@@ -213,6 +218,14 @@ def get_bit_group_stats(group_bits:dict, print_flag = False, outfile: TextIOWrap
             error_in_group = True
         elif 'BRAM' in fb.tile and 'Faults occurred in net' in fb.failure:
             group_stats.stats['BRAM Routing Errors'] += 1
+            group_stats.stats['Found Errors'] += 1
+            error_in_group = True
+        elif 'DSP' in fb.tile and 'function(s) affected' in fb.failure:
+            group_stats.stats['DSP Altered Bit Errors'] += 1
+            group_stats.stats['Found Errors'] += 1
+            error_in_group = True
+        elif 'DSP' in fb.tile and 'Faults occurred in net' in fb.failure:
+            group_stats.stats['DSP Routing Errors'] += 1
             group_stats.stats['Found Errors'] += 1
             error_in_group = True
         elif 'Opens created' in fb.failure and 'Shorts formed' not in fb.failure:
@@ -258,6 +271,8 @@ def print_bit_group_stats(outfile:TextIOWrapper, group_stats:Statistics):
     errors_found += group_stats.stats['HCLK Routing Errors']
     errors_found += group_stats.stats['BRAM Altered Bit Errors']
     errors_found += group_stats.stats['BRAM Routing Errors']
+    errors_found += group_stats.stats['DSP Altered Bit Errors']
+    errors_found += group_stats.stats['DSP Routing Errors']
 
     error_rate = round((errors_found/group_stats.stats['Fault Bits'])*100, 2)
 

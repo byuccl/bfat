@@ -153,6 +153,8 @@ class FaultBit(Bit):
                 self.__get_design_info_HCLK(design)
             elif 'BRAM' in self.tile:
                 self.__get_design_info_BRAM(design)
+            elif 'DSP' in self.tile:
+                self.__get_design_info_DSP(design)
 
             # Give default value for affected resources if no specific resources are found
             if not self.affected_rsrcs or (len(self.affected_rsrcs) <= 1 and 'NA' in self.affected_rsrcs):
@@ -409,6 +411,53 @@ class FaultBit(Bit):
                 self.failure = f'Above function(s) affected for {self.design_name}'
             else:
                 self.failure = 'No instanced resource found for this bit'
+
+    def __get_design_info_DSP(self, design:DesignQuery):
+        '''
+            Helper function for design info updating for bits in DSP tiles
+                Arguments: Query of the design
+        '''
+
+        # Analyze the first function, since they all control one element
+        function = self.phys_fctns[0]      
+
+        # Check if the function actually controls a routing pip
+        if 'DSP_0' in function[0] or 'DSP_1' in function[0]:
+            # Get the sink node of the pip and the net that uses that sink node
+            sink_wire = function[0]
+            sink_net = design.get_net(self.tile, sink_wire)
+
+            # Trace the affected resources if there is a net at this node
+            if sink_net and sink_net != 'NA':
+                self.affected_rsrcs = design.get_affected_rsrcs(sink_net, self.tile, sink_wire)
+                self.failure = f'Faults occurred in net: {sink_net}'
+            else:
+                self.failure = 'Not able to find any failures caused by this fault'
+
+            # Revise bit fields to mimic the standard routing bit format
+            self.phys_fctns = [[f'{sink_wire} Routing Mux']]
+            self.design_name = f'{self.tile}/{sink_wire}'
+
+        # Standard BRAM bit evaluation
+        else:
+            # Determine the affected site from the function
+            site_offset = function[1][-1]
+            site_name = get_global_site(f'DSP48_Y{site_offset}', self.tile, design)
+
+            # Attempt to find affected resources if the site exists
+            if site_name != 'NA':
+                # Query cells in the tile and get all cells in the site
+                design.query_cells(self.tile)
+                cells = list(design.cells[self.tile][site_name].values())
+
+                # Update bit fields if cells are found in the site
+                if cells:
+                    # Update design name and affected resources
+                    self.design_name = ', '.join(cells)
+                    self.affected_rsrcs = cells
+                    self.failure = f'Above function(s) affected for {self.design_name}*'
+                else:
+                    self.failure = 'No instanced resource found for this bit'
 
 ##################################################
 #          Bit Group Analysis Functions          #
