@@ -49,8 +49,8 @@ def parse_ll_file(ll_file:str):
         for line in ll_f:
             line_split = line.split()
             
-            # Ignore lines that do not give bit information and are not CLB bits
-            if line_split[0] != 'Bit' or 'SLICE' not in line_split[4]:
+            # Ignore lines that do not give bit information
+            if line_split[0] != 'Bit':
                 continue
 
             # Get frame address and bit offset from start of frame

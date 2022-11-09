@@ -151,6 +151,8 @@ class FaultBit(Bit):
                 self.__get_design_info_IOI3(design)
             elif 'HCLK_L' in self.tile or 'HCLK_R' in self.tile:
                 self.__get_design_info_HCLK(design)
+            elif 'BRAM' in self.tile:
+                self.__get_design_info_BRAM(design)
 
             # Give default value for affected resources if no specific resources are found
             if not self.affected_rsrcs or (len(self.affected_rsrcs) <= 1 and 'NA' in self.affected_rsrcs):
@@ -321,6 +323,92 @@ class FaultBit(Bit):
             self.design_name = f'{self.tile}/{sink_wire}'
             self.affected_pips = [f'{src_wire}->>{sink_wire}']
 
+    def __get_design_info_BRAM(self, design:DesignQuery):
+        '''
+            Helper function for design info updating for bits in BRAM tiles
+                Arguments: Query of the design
+        '''
+
+        # Analyze the first function, since they all control one element
+        function = self.phys_fctns[0]
+
+        # Check if the function actually controls a routing pip
+        if 'ADDRARDADDRL' in function[0] or 'ADDRBWRADDRL' in function[0]:
+            # Get the sink node of the pip and the net that uses that sink node
+            sink_wire = function[0]
+            sink_net = design.get_net(self.tile, sink_wire)
+
+            # Trace the affected resources if there is a net at this node
+            if sink_net and sink_net != 'NA':
+                self.affected_rsrcs = design.get_affected_rsrcs(sink_net, self.tile, sink_wire)
+                self.failure = f'Faults occurred in net: {sink_net}'
+            else:
+                self.failure = 'Not able to find any failures caused by this fault'
+
+            # Revise bit fields to mimic the standard routing bit format
+            self.phys_fctns = [[f'{sink_wire} 3-3 Routing Mux']]
+            self.design_name = f'{self.tile}/{sink_wire}'
+
+        # Standard BRAM bit evaluation for when a site is specified
+        elif 'RAMB' in function[0]:
+            # Though the implemented design displays two RAMB18s and one RAMB36,
+            # this is inaccurate. The RAMB36 is actually just the two RAMB18s
+            # cascaded together.
+            
+            # So, if a function specifies a RAMB18 but a RAMB36 is instanced and
+            # not a RAMB18, the RAMB36 is still affected since they use the same
+            # physical resource. 
+
+            design.query_cells(self.tile)
+            site_name = 'NA'
+
+            # Check if the RAMB36 is instanced when a RAMB18 site is given
+            if 'RAMB18' in function[0]:
+                # Look for the RAMB36 site
+                for site in design.cells[self.tile]:
+                    # If the RAMB36 has instanced cells, this is the affected site
+                    if 'RAMB36' in site and list(design.cells[self.tile][site].values()):
+                        site_name = site
+            
+            # If not instanced RAMB36 was found, use the given RAMB18 site
+            if site_name == 'NA':
+                site_name = get_global_site(function[0], self.tile, design)
+
+            # Attempt to find affected resources if the site exists and is used
+            if site_name != 'NA':
+                # Get the cells in the site (should only be one)
+                cells = list(design.cells[self.tile][site_name].values())
+
+                # Update bit fields if cells are found in the site
+                if cells:
+                    # Update design name and affected resources
+                    self.design_name = ', '.join(cells)
+                    self.affected_rsrcs = cells
+                    self.failure = f'Above function(s) affected for {self.design_name}'
+                else:
+                    self.failure = 'No instanced resource found for this bit'
+
+        # If the site is not specified, assume all RAMBs are affected
+        else:
+            tile_cells = []
+            design.query_cells(self.tile)
+
+            # Retrieve all cells in the tile
+            for site_bels in design.cells[self.tile].values():
+                # Skip site iteration if the site has no bels with a cell
+                if 'None' in site_bels:
+                    continue
+                # Get the cell for each of the bels
+                for cell in site_bels.values():
+                    tile_cells.append(cell)
+            
+            # Update bit attributes with the found information
+            if tile_cells:
+                self.design_name = ', '.join(tile_cells)
+                self.affected_rsrcs = tile_cells
+                self.failure = f'Above function(s) affected for {self.design_name}'
+            else:
+                self.failure = 'No instanced resource found for this bit'
 
 ##################################################
 #          Bit Group Analysis Functions          #
@@ -445,7 +533,7 @@ def possible_aff_rsrcs(potential_tiles:list, design:DesignQuery):
 def get_global_site(local_site:str, tile:str, design:DesignQuery):
     '''
         Converts a site name which is offset from the tile address to one which can
-        be interpreted independent of the tile offset
+        be interpreted independent of the tile offset (if that site is used)
             Arguments: String of site name from Project X-Ray database, string of tile name,
                        design query object
             Returns: String of the converted site name 
@@ -455,7 +543,8 @@ def get_global_site(local_site:str, tile:str, design:DesignQuery):
     try:
         site_root, site_offset = local_site.split('_')
     except ValueError:
-        return 'NA'
+        site_root = local_site
+        site_offset = 'NA'
 
     # Query design for sites in the tile if it isn't already loaded
     if tile not in design.cells:
@@ -470,34 +559,36 @@ def get_global_site(local_site:str, tile:str, design:DesignQuery):
         # Add all sites matching the root to a list
         sites = [site for site in design.cells[tile] if site_root in site]
 
-        # Check for a matching site if any related sites are found
-        if sites:
-            # Identify matching sites depending on the site's X or Y offset from the tile
-            if 'Y' in site_offset:
-                # Get the site's y index
-                tile_y = int(tile[tile.find('Y', tile.find('_X')) + 1:])
-
-                # Set the site's y offset
-                if '1' in site_offset:
-                    y_off = 1
-                else:
-                    y_off = 0
-
-                # Return the site which matches the y address
-                for site in sites:
-                    # Return site if the y address matches
-                    if f'Y{tile_y + y_off}' in site:
-                        return site
-            
+        # Check for a matching site based off of the Y offset
+        if 'Y' in site_offset:
+            # Set the site's y offset
+            if '1' in site_offset:
+                y_off = 1
             else:
-                # Return the site which matches the x offset from the tile
-                for site in sites:
-                    # Get the site's x index and offset
-                    x_off = int(site[site.find('X') + 1:site.find('Y')]) % 2
+                y_off = 0
 
-                    # Return the site if its x offset matches its local site address
-                    if 'X0' in site_offset and x_off == 0 or 'X1' in site_offset and x_off > 0:
-                        return site
+            # Sort the sites by their y address and return the one that matches
+            # the given offset
+            sites = sorted(sites, key=lambda s: int(s[(s.find('Y') + 1):]))
+            return sites[y_off]
+
+        # Check for a matching site based off of the X offset
+        elif 'X' in site_offset:
+            # Set the site's y offset
+            if '1' in site_offset:
+                x_off = 1
+            else:
+                x_off = 0
+            
+            # Sort the sites by their y address and return the one that matches
+            # the given offset
+            sites = sorted(sites, key=lambda s: int(s[(s.find('X') + 1):s.find('Y')]))
+            return sites[x_off]
+
+        # Handling for if no offset is given
+        elif len(sites) == 1:
+            return sites[0]
+
     return 'NA'
 
 def get_site_related_cells(tile:str, site:str, bel:str, design:DesignQuery):

@@ -724,14 +724,20 @@ class VivadoQuery(DesignQuery):
         
         # Get the node from the current wire
         current_node = self.run_command('getWireNode', f'{tile}/{wire}')
-        traced_nodes.add(current_node)
 
         # Find any non-INT or same-tile wire connections for the initial node
         sink_conns = {conn for conn in self.run_command('getWireConnections', tile, wire)}
 
-        # Verify that there are downstream connections of this node
+        # Re-initialize to an empty set if no downstream wire connections were found
         if 'N' in sink_conns and 'A' in sink_conns:
-            return affected_rsrcs, traced_nodes
+            sink_conns = set()
+
+        # Always check the current node just in case this is the first node checked in
+        # the recursion tree and it happens to connect directly to a site
+        if current_node not in traced_nodes:
+            sink_conns.add(current_node)
+
+        traced_nodes.add(current_node)
 
         # Trace each wire connection for initial cells used by the net in the current tile
         for conn in sink_conns:

@@ -147,23 +147,29 @@ class RpdQuery(DesignQuery):
                 Arguments: String of the tile to query
         '''
 
-        siteInsts = list(self.query.getSiteInsts())
+        # Get all sites in the tile
+        tile_obj = self.query.getDevice().getTile(tile)
+        sites = list(tile_obj.getSites())
 
-        # Iterate through each site instance
-        for site in siteInsts:
-            # Add site information to stored data if in the requested tile
-            if str(site.getTile()) == tile:
-                # Create an entry for the current tile if there isn't one
-                if tile not in self.cells:
-                    self.cells[tile] = {}
-                site_name = str(site.getName())
-                self.cells[tile][site_name] = {}
+        # Add each site and its cells to the stored data
+        for site in sites:
+            # Create an entry for the current tile if there isn't one
+            if tile not in self.cells:
+                self.cells[tile] = {}
+            site_name = str(site.getName())
+            self.cells[tile][site_name] = {}
 
+            # Get siteInst object with design information from the site object
+            site_inst = self.query.getSiteInstFromSite(site)
+
+            # Verify that the site has a corresponding siteInst
+            if site_inst:
                 # Check each cell found in the site instance from Rapidwright and add the BEL
                 # and cell name to its entry
-                for cell in list(site.getCells()):
+                for cell in list(site_inst.getCells()):
                     bel = str(cell.getBELName())
                     self.cells[tile][site_name][bel] = str(cell.getName())
+
 
     def query_wires(self, tile:str):
         '''
