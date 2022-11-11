@@ -310,6 +310,10 @@ class RpdQuery(DesignQuery):
         affected_rsrcs = set()
         site_inst = self.query.getSiteInst(site)
 
+        # Exit if a siteInst does not exist for this site
+        if not site_inst:
+            return ['NA']
+
         # Define constants for the three edge case types to handle
         ROUTING_BELS = ['CLKINV', 'NOCLKINV', 'CEUSEDMUX', 'SRUSEDMUX']
         FF_CONTROL = ['FFSYNC', 'LATCH']

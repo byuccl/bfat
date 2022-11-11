@@ -199,19 +199,24 @@ class FaultBit(Bit):
                 self.design_name = get_site_related_cells(self.tile, site_name, fctn_bel, design)
                 self.affected_rsrcs = self.design_name.split(', ')
 
+                # Set failure message according to if a design resource was found or not
+                if self.design_name == 'NA':
+                    self.failure = f'No instanced resource found for this bit'
+                else:
+                    self.failure = f'{self.phys_fctns[0][-1]} bit altered for {self.design_name}'
+
             # Special CLB fault bit value updating for functions that don't correspond to a BEL
             # which can have a cell mapped to it
             elif len(function) == 2:
-                # Attempt to get affected resources within this site if it is used
-                if site_name != 'NA':
-                    self.design_name = function[1]
-                    self.affected_rsrcs = design.get_CLB_affected_resources(site_name, function[1])
+                # Attempt to get affected resources within this site
+                self.design_name = function[1]
+                self.affected_rsrcs = design.get_CLB_affected_resources(site_name, function[1])
 
-        # Set failure message according to if a design resource was found or not
-        if self.design_name == 'NA':
-            self.failure = f'No instanced resource found for this bit'
-        else:
-            self.failure = f'{self.phys_fctns[0][-1]} bit altered for {self.design_name}'
+                # Set failure message according to if affected resources were found or not
+                if not self.affected_rsrcs or 'NA' in self.affected_rsrcs:
+                    self.failure = f'Not able to find any failures caused by this fault'
+                else:
+                    self.failure = f'{self.phys_fctns[0][-1]} bit altered for {self.design_name}'
 
     def __get_design_info_IOI3(self, design:DesignQuery):
         '''
