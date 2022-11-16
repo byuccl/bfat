@@ -28,6 +28,7 @@ import copy
 from lib.define_bit import Bit, bit_bitstream_addr
 from lib.design_query import DesignQuery
 from lib.tile import Tile
+from lib.lut_config import LUT
 
 class FaultBit(Bit):
     '''
@@ -199,11 +200,29 @@ class FaultBit(Bit):
                 self.design_name = get_site_related_cells(self.tile, site_name, fctn_bel, design)
                 self.affected_rsrcs = self.design_name.split(', ')
 
+                # LUT configuration memory upset evaulation
+                for cell in self.affected_rsrcs:
+                    # Verify that the cell is a LUT
+                    if cell != 'NA' and 'LUT' in fctn_bel:
+                        # Add note header if it hasn't been added
+                        if self.note == 'NA':
+                            self.note = 'INIT string changes:\n'
+
+                        lut = LUT(cell, design)
+                        upset_bit_index = int(function[-1][-3:-1])
+                        lut.simulate_upset([upset_bit_index])
+
+                        # Add note about changes to the cell init string
+                        if lut.cell_init_str != lut.cell_init_str_upset:
+                            self.note += f'\t\t{cell}: {lut.cell_init_str} -> {lut.cell_init_str_upset}\n'
+                        else:
+                            self.note += f'\t\t{cell}: {lut.cell_init_str} (no change)\n'
+
                 # Set failure message according to if a design resource was found or not
                 if self.design_name == 'NA':
                     self.failure = f'No instanced resource found for this bit'
                 else:
-                    self.failure = f'{self.phys_fctns[0][-1]} bit altered for {self.design_name}'
+                    self.failure = f'{self.phys_fctns[0][-1]} bit altered for {self.design_name}.'
 
             # Special CLB fault bit value updating for functions that don't correspond to a BEL
             # which can have a cell mapped to it
@@ -443,7 +462,7 @@ class FaultBit(Bit):
             self.phys_fctns = [[f'{sink_wire} Routing Mux']]
             self.design_name = f'{self.tile}/{sink_wire}'
 
-        # Standard BRAM bit evaluation
+        # Standard DSP bit evaluation
         else:
             # Determine the affected site from the function
             site_offset = function[1][-1]

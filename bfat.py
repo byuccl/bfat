@@ -249,11 +249,13 @@ def print_bit_group_section(section_name:str, section_bits, outfile:TextIOWrappe
                 for aff_rsrc in sorted(sb.affected_rsrcs):
                     outfile.write(f'\t\t{aff_rsrc}\n')
 
-                # Print a text-wrapped note if one was logged for the bit
-                if sb.note != 'NA':
+                # Print a note if one was logged for the bit (text wrap for long strings)
+                if sb.note != 'NA' and '\n' not in sb.note:
                     wrap_len = 70
                     note_wrapped = '\n\t'.join(wrap(sb.note, wrap_len))
                     outfile.write(f'\n\t{note_wrapped}\n')
+                elif sb.note != 'NA':
+                    outfile.write(f'\n\t{sb.note}')
 
                 gen_tcl_cmds(sb, outfile)
 
