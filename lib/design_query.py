@@ -348,6 +348,18 @@ class DesignQuery(object):
             print('No wires queried from design')
 
     ###########################################
+    #        Abstract Cell Information        #
+    ###########################################
+
+    @abstractmethod
+    def get_cell_init_str(self, cell:str):
+        pass
+
+    @abstractmethod
+    def get_cell_pins(self, cell:str):
+        pass
+
+    ###########################################
     #   Abstract find_fault_bits.py Helpers   #
     ###########################################
 
@@ -623,6 +635,8 @@ class VivadoQuery(DesignQuery):
             'getCellBEL' : f'puts [set n [get_property BEL [get_cells {arg1}]]; string range $n [string last "." $n]+1 [string length $n]]\n',
             'getCellPins' : f'puts [get_pins -of [get_cells {arg1}]]\n',
             'getCellSitePins' : f'puts [get_site_pins -of [get_pins -of [get_cells {arg1}]]]\n',
+            'getCellProperty' : f'puts [get_property {arg2} [get_cells {arg1}]]\n',
+            'getCellPinMappings' : f'set names []; foreach p [get_pins -of [get_cells {arg1}]] {{lappend names [get_bel_pins -of $p]:$p}}; puts $names\n',
             # Pin/SitePin Commands
             'getPinNet' : f'puts [get_nets -of [get_pins {arg1}]]\n',
             'getPinDirection' : f'puts [get_property DIRECTION [get_pins {arg1}]]\n',
@@ -639,7 +653,7 @@ class VivadoQuery(DesignQuery):
         if tcl:
             # List of commands that return a string instead of a list
             str_cmds = ['getCellBEL', 'getPIPNet', 'getDesignPart', 'getPinNet', 'getSiteTile',
-                        'getPinDirection', 'getNodeSite', 'getNodeSitePin', 'getWireNode']
+                        'getPinDirection', 'getNodeSite', 'getNodeSitePin', 'getWireNode', 'getCellProperty']
 
             # Send input tcl command to running vivado pipe
             self.query.stdin.write(tcl)
@@ -858,6 +872,45 @@ class VivadoQuery(DesignQuery):
             affected_rsrcs = {cell for bel, cell in self.cells[tile][site].items() if 'LUT' in bel}
 
         return list(affected_rsrcs)
+
+    #################################
+    #       Cell Information        #
+    #################################
+
+    def get_cell_init_str(self, cell:str):
+        '''
+            Retrieves the init string of a LUT's cell
+                Arguments: string of the cell name
+                Returns: string of the hexadecimal init word
+        '''
+
+        property_val = self.run_command('getCellProperty', cell, 'INIT')
+        return property_val
+
+    def get_cell_pins(self, cell: str):
+        '''
+            Retrieves the mapping of logical cell input pins to physical BEL pins
+                Arguments: string of the cell name
+                Returns: dict that maps the cell pins to BEL pins
+        '''
+
+        # Get the physical->logical pin mapping and format to dictionary
+        pins_list = self.run_command('getCellPinMappings', cell)
+
+        pins_map = {}
+        # Iterate through each ':' seperated pin mapping string
+        for pin_pair in pins_list:
+            # Remove any enclosing curly braces
+            if pin_pair[0] == '{' and pin_pair[-1] == '}':
+                pin_pair = pin_pair[1:-1]
+            
+            # Format pin strings and add pins to the dictionary
+            bel_pin, cell_pin = pin_pair.split(':')
+            bel_pin = bel_pin.split('/')[-1]
+            cell_pin = cell_pin.split('/')[-1]
+            pins_map[bel_pin] = cell_pin
+
+        return pins_map        
 
     ##################################
     #   find_fault_bits.py Helpers   #

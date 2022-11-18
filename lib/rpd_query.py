@@ -310,6 +310,10 @@ class RpdQuery(DesignQuery):
         affected_rsrcs = set()
         site_inst = self.query.getSiteInst(site)
 
+        # Exit if a siteInst does not exist for this site
+        if not site_inst:
+            return ['NA']
+
         # Define constants for the three edge case types to handle
         ROUTING_BELS = ['CLKINV', 'NOCLKINV', 'CEUSEDMUX', 'SRUSEDMUX']
         FF_CONTROL = ['FFSYNC', 'LATCH']
@@ -347,7 +351,34 @@ class RpdQuery(DesignQuery):
             print(f'Unrecognized CLB bit function: {function}')
 
         return list(affected_rsrcs)
-            
+
+    #################################
+    #       Cell Information        #
+    #################################
+
+    def get_cell_init_str(self, cell:str):
+        '''
+            Retrieves the init string of a LUT's cell
+                Arguments: string of the cell name
+                Returns: string of the hexadecimal init word
+        '''
+
+        cell_obj = self.query.getCell(cell)
+        init_str = str(cell_obj.getProperty('INIT').getValue())
+
+        return init_str
+
+    def get_cell_pins(self, cell:str):
+        '''
+            Retrieves the mapping of logical cell input pins to physical BEL pins
+                Arguments: string of the cell name
+                Returns: dict that maps the cell pins to BEL pins
+        '''
+
+        cell_obj = self.query.getCell(cell)
+        pins_map = dict(cell_obj.getPinMappingsP2L())
+
+        return pins_map
 
     ##################################
     #   find_fault_bits.py Helpers   #
