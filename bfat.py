@@ -31,13 +31,15 @@
     Optional flags:
         - bits_file [-bf]: Flag to parse in a .bits file instead of a bitstream for the design
         - rapidwright [-rpd]: Flag to use Rapidwright implementation of design querying
-        - out_file [-of]: Path of output file. Default is <design_name>_fault_report.txt
+        - out_file [-of]: Path of output file. Default is <bit_list_name>_fault_report.txt
+        - pickle [-p]: Write fault report data as a .pickle file
 
     Returns:
         - output file (.txt) that reports the location and cause of any determinable fault bits
 '''
 
 import time
+import pickle
 from io import TextIOWrapper
 from tqdm import tqdm
 from textwrap import wrap
@@ -80,9 +82,9 @@ def gen_tile_images(tilegrid:dict, part:str):
 
     return tile_imgs
 
-##################################################
-#    Functions for Printing the Fault Report     #
-##################################################
+###################################################
+#    Functions for Exporting the Fault Report     #
+###################################################
 
 def get_outfile_name(outname_arg:str, fault_bits_path:str):
     '''
@@ -326,6 +328,23 @@ def print_fault_report(outfile:str, fault_report:dict):
 
     return statistics
 
+def pickle_fault_report(report_name:str, fault_report:dict):
+    '''
+        Serializes the fault report data structure. Saved with the same name
+        as the fault report but a different file extension.
+            Arguments: String of the original fault report path and dict of
+                       the design's fault report
+    '''
+
+    # Change file extension to .pickle
+    if len(report_name.split('.')) > 1:
+        report_name = '.'.join(report_name.split('.')[:-1])
+    outfile_name = report_name + '.pickle'
+
+    # Open the file to write the data to
+    with open(outfile_name, 'wb') as o_f:
+        pickle.dump(fault_report, o_f)
+
 ##################################################
 #                 Main Function                  #
 ##################################################
@@ -383,6 +402,11 @@ def main(args):
     print('Printing Statistical Footer...')
     print_stat_footer(outfile, args.dcp_file, args.rapidwright, statistics, round(time.perf_counter()-t_start, 2))
 
+    # Export fault report as .pickle if flag is set
+    if args.pickle:
+        print('Exporting Fault Report to .pickle...')
+        pickle_fault_report(outfile, fault_report)
+
 if __name__ == '__main__':
     import argparse
     # Create Argument Parser to take in commandline arguments
@@ -399,6 +423,8 @@ if __name__ == '__main__':
                         help='Specify a .bits text file of all high bits instead of a bitstream')
     parser.add_argument('-rpd', '--rapidwright', action='store_true',
                         help='Flag to use Rapidwright to read design data')
+    parser.add_argument('-p', '--pickle', action='store_true',
+                        help='Flag to write a .pickle file containing the raw fault report data')
     # Optional Output File Path
     parser.add_argument('-of', '--out_file', default='',
                         help='File path where the output is to be written.')
