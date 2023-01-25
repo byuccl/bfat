@@ -220,7 +220,7 @@ class FaultBit(Bit):
 
                         # Add note about changes to the cell init string
                         if lut_failure:
-                            self.note += f'\t\t{cell}: BEL does not actually have a cell\n'
+                            self.note += f'\t\t{cell}: The LUT acts as a route-through to a flip-flop\n'
                         elif lut.cell_init_str != lut.cell_init_str_upset:
                             self.note += f'\t\t{cell}: {lut.cell_init_str} -> {lut.cell_init_str_upset}\n'
                         else:
