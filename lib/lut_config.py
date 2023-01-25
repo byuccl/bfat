@@ -27,6 +27,7 @@ class LUT:
 
     def __init__(self, cell:str, design:DesignQuery):
         self.cell = cell
+        self.num_bel_inputs = 0
         self.pins = {}
         self.cell_init_str = 'NA'
         self.bel_init_str = 'NA'
@@ -42,9 +43,53 @@ class LUT:
                 Arguments: design query object
         '''
 
-        self.pins = design.get_cell_pins(self.cell)
         self.cell_init_str = design.get_cell_init_str(self.cell)
+        self.retrieve_pin_info(design)
         self.calculate_bel_init()
+
+    def retrieve_pin_info(self, design:DesignQuery):
+        '''
+            Populates members related to the BEL pins and cell pins
+                Arguments: design query object
+        '''
+
+        self.pins = design.get_cell_pins(self.cell)
+        sibling_cell = 'NA'
+
+        # Search the cells database for the current cell and retrieve its
+        # sibling cell (if it exists). A sibling cell is the cell that is
+        # placed on the same LUT structure as the original cell, but the
+        # not the same BEL (e.g. a cell on the LUT5 vs. a cell on the LUT6)
+        for tile, sites in design.cells.items():
+            for site, bels in sites.items():
+                for bel, cell in bels.items():
+                    if cell == self.cell and 'LUT' in bel:
+                        self.num_bel_inputs = int(bel[1])
+
+                        # Determine the current cell's sibling BEL
+                        sibling_bel = list(bel)
+                        sibling_bel[1] = '5' if bel[1] == '6' else '6'
+                        sibling_bel = "".join(sibling_bel)
+                        
+                        # Get the sibling BEL's cell if it has one
+                        if sibling_bel in bels:
+                            sibling_cell = bels[sibling_bel]
+                        break
+                else:
+                    continue
+                break
+            else:
+                continue
+            break
+
+        # If a sibling cell was found, note its used BEL pins
+        if sibling_cell != 'NA':
+            sibling_cell_pins = design.get_cell_pins(sibling_cell)
+
+            # Add sibling used input bel pins to current cell bell pins
+            for sibling_bp in sibling_cell_pins:
+                if sibling_bp not in self.pins and 'O' not in sibling_bp:
+                    self.pins[sibling_bp] = 'USED_BY_SIBLING'
 
     def calculate_bel_init(self):
         '''
@@ -61,15 +106,8 @@ class LUT:
         cell_init_int, _ = init_str_to_int(self.cell_init_str)
         bel_init_int = 0
 
-        # Determine the size of the LUT (5 or 6 inputs)
-        for bel_pin in self.pins:
-            # Output pin will be named "O5" or "O6"
-            if 'O' in bel_pin:
-                lut_size = int(bel_pin[-1], 10)
-                break
-
         # Iterate through the value of each possible input combinations to the BEL
-        for bel_init_index in range(2**lut_size):
+        for bel_init_index in range(2**self.num_bel_inputs):
             cell_init_index = 0
 
             # Calculate the index of the cell init string that this index of the
@@ -77,6 +115,10 @@ class LUT:
             for bel_pin in self.pins:
                 # Ignore output pins
                 if 'O' in bel_pin:
+                    continue
+
+                # Ignore pins only used by the sibling cell
+                if self.pins[bel_pin] == 'USED_BY_SIBLING':
                     continue
 
                 # If this BEL pin is high in this input combination, set the bit in
@@ -90,7 +132,7 @@ class LUT:
                 bel_init_int |= 1 << bel_init_index
 
         # Format the init string and populate the member variable
-        self.bel_init_str = int_to_init_str(bel_init_int, lut_size)
+        self.bel_init_str = int_to_init_str(bel_init_int, self.num_bel_inputs)
 
     def simulate_upset(self, upset_bits:list):
         '''
@@ -99,7 +141,7 @@ class LUT:
                 Arguments: list of indices in the init string to upset
         '''
 
-        bel_init_int, lut_size = init_str_to_int(self.bel_init_str)
+        bel_init_int, _ = init_str_to_int(self.bel_init_str)
         cell_init_int, cell_num_inputs = init_str_to_int(self.cell_init_str)
         
         # LUT letter identifier in SLICE (A, B, C, or D)
@@ -108,7 +150,7 @@ class LUT:
         # Flip each upset bit in the BEL init string
         for bel_upset_bit in upset_bits:
             # Invert the bit if the index is valid
-            if bel_upset_bit <= 2**lut_size:
+            if bel_upset_bit <= 2**self.num_bel_inputs:
                 bel_init_int ^= 1 << bel_upset_bit
 
             # Configuration of input states corresponding to this bit
@@ -127,8 +169,8 @@ class LUT:
 
                 # Construct the address for the corresponding bit in the cell init str
                 for bel_pin in self.pins:
-                    # Ignore output pin
-                    if 'O' in bel_pin:
+                    # Ignore output pins and pins only used by sibling cell
+                    if 'O' in bel_pin or self.pins[bel_pin] == 'USED_BY_SIBLING':
                         continue
                     cell_input_num = int(self.pins[bel_pin][-1], 10)
                     cell_upset_bit |= bit_input_config[bel_pin] << cell_input_num
@@ -137,7 +179,7 @@ class LUT:
                 cell_init_int ^= 1 << cell_upset_bit
 
         self.upset_bits = upset_bits
-        self.bel_init_str_upset = int_to_init_str(bel_init_int, lut_size)
+        self.bel_init_str_upset = int_to_init_str(bel_init_int, self.num_bel_inputs)
         self.cell_init_str_upset = int_to_init_str(cell_init_int, cell_num_inputs)
 
 ############################################################
