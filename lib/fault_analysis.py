@@ -203,17 +203,25 @@ class FaultBit(Bit):
                 # LUT configuration memory upset evaulation
                 for cell in self.affected_rsrcs:
                     # Verify that the cell is a LUT
-                    if cell != 'NA' and 'LUT' in fctn_bel:
+                    if cell != 'NA' and 'LUT' in fctn_bel:                        
+                        lut_failure = False
+
+                        # Attempt to build the LUT structure and apply the upset
+                        try:
+                            lut = LUT(cell, design)
+                            upset_bit_index = int(function[-1][-3:-1])
+                            lut.simulate_upset([upset_bit_index])
+                        except:
+                            lut_failure = True
+
                         # Add note header if it hasn't been added
                         if self.note == 'NA':
                             self.note = 'INIT string changes:\n'
 
-                        lut = LUT(cell, design)
-                        upset_bit_index = int(function[-1][-3:-1])
-                        lut.simulate_upset([upset_bit_index])
-
                         # Add note about changes to the cell init string
-                        if lut.cell_init_str != lut.cell_init_str_upset:
+                        if lut_failure:
+                            self.note += f'\t\t{cell}: The LUT acts as a route-through to a flip-flop\n'
+                        elif lut.cell_init_str != lut.cell_init_str_upset:
                             self.note += f'\t\t{cell}: {lut.cell_init_str} -> {lut.cell_init_str_upset}\n'
                         else:
                             self.note += f'\t\t{cell}: {lut.cell_init_str} (no change)\n'
