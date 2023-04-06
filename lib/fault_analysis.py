@@ -650,7 +650,7 @@ def get_global_site(local_site:str, tile:str, design:DesignQuery):
 
             # Sort the sites by their y address and return the one that matches
             # the given offset
-            sites = sorted(sites, key=lambda s: int(s[(s.find('Y') + 1):]))
+            sites = sorted(sites, key=lambda s: int(s[(s.rfind('Y') + 1):]))
             return sites[y_off]
 
         # Check for a matching site based off of the X offset
