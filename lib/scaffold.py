@@ -5,10 +5,16 @@ sys.path.append(f'{"/".join(__file__.split("/")[:-1])}/..')
 
 import os
 import pathlib
-import json
 import bitread
+import bfat
 from lib.design_query import DesignQuery, VivadoQuery
-from rpd_query import RpdQuery
+from lib.rpd_query import RpdQuery
+from lib.file_processing import parse_design_bits
+from lib.statistics import print_stat_footer
+
+DESIGNS_DIRECTORY = pathlib.Path(__file__).parent.parent / "designs"
+FAULT_BITS_DIRECTORY = pathlib.Path(__file__).parent.parent / "fault_bits"
+REPORTS_DIRECTORY = pathlib.Path(__file__).parent.parent / "reports"
 
 ####################################
 #        Getting file paths        #
@@ -30,7 +36,7 @@ def get_bitstream_path(design:str) -> pathlib.Path:
         pathlib.Path: path to the bitstream
     """
     
-    design_dir = pathlib.Path(__file__).parent.parent / "designs" / design
+    design_dir = DESIGNS_DIRECTORY / design
     
     bitstreams = []
     
@@ -62,7 +68,7 @@ def get_bits_file_path(design:str) -> pathlib.Path:
         pathlib.Path: path to the bits file
     """
     
-    design_dir = pathlib.Path(__file__).parent.parent / "designs" / design
+    design_dir = DESIGNS_DIRECTORY / design
     
     bits_files = []
     
@@ -91,7 +97,7 @@ def get_checkpoint_path(design:str) -> pathlib.Path:
         pathlib.Path: path to the checkpoint
     """
     
-    design_dir = pathlib.Path(__file__).parent.parent / "designs" / design
+    design_dir = DESIGNS_DIRECTORY / design
     
     dcps = []
     
@@ -123,12 +129,26 @@ def get_fault_bits_path(design:str, fault_bits_name:str) -> pathlib.Path:
     """
 
     
-    fault_bits_path = pathlib.Path(__file__).parent.parent / "fault_bits" / design / fault_bits_name
+    fault_bits_path = FAULT_BITS_DIRECTORY / design / fault_bits_name
     
     if not os.path.exists(fault_bits_path):
         raise Exception(f"{fault_bits_path} not found")
     
     return fault_bits_path
+
+def get_report_path(design:str, report_name:str) -> pathlib.Path:
+    """Retrieves the path to a fault report matching the given design and report
+    name. The path will match bfat/reports/{DESIGN_NAME}/{REPORT_NAME}.
+
+    Args:
+        design (str): name of the design directory where the file will be stored
+        report_name (str): name of the .txt file that will contain the report
+
+    Returns:
+        pathlib.Path: path to the fault report (which may not be generated yet)
+    """
+    
+    return REPORTS_DIRECTORY / design / report_name
 
 ####################################
 #              Parsing             #
@@ -150,16 +170,11 @@ def get_design_bits(design:str) -> list:
     Returns:
         list: addresses of every bit whose value is "1"
     """
-    
-    design_bits : list = []
 
     # Attempt to parse a .bits file
     try:
         bits_file_path = get_bits_file_path(design)
-        with open(bits_file_path) as b_f:
-            # Iterate through each line of the .bits file to get the bit information
-            for line in b_f:
-                design_bits.append(line.strip())
+        design_bits = parse_design_bits(bits_file_path)
     
     # .bits file doesn't exist, read the bitstream instead
     except:
@@ -208,25 +223,35 @@ def get_fault_bits(design:str, fault_bits_name:str) -> dict:
     """
     
     fault_bits_path = get_fault_bits_path(design, fault_bits_name)
+    return bfat.parse_fault_bits(fault_bits_path)
 
-    # Load json file
-    with open(fault_bits_path) as f:
-        bit_groups_json = json.load(f)
+####################################
+#              Writing             #
+####################################
 
-    # Convert to dictionary 
-    bit_groups = {}
-    for index, bit_group in enumerate(bit_groups_json, 1):
-        bit_group_format = []
+def write_fault_report(fault_report:dict, design:str, report_name:str, rpd_query_used:bool, elapsed_time:float, pickle:bool=False):
+    """Writes a fault report given the following parameters. The report will be located
+    at bfat/reports/{DESIGN_NAME}/{REPORT_NAME}.
 
-        # Convert bit addresses to lowercase and zero fill
-        for bit in bit_group:
-            frame_addr = bit[0].lower().zfill(8)
-            word_offset = bit[1].zfill(3)
-            bit_offset = bit[2].zfill(2)
-
-            bit_group_format.append([frame_addr, word_offset, bit_offset])
-
-        # Add formatted bit group to the dictionary
-        bit_groups[index] = bit_group_format
-
-    return bit_groups
+    Args:
+        fault_report (dict): contains the result of the fault analysis for all bit groups
+        design (str): name of the design directory where the file is stored
+        report_name (str): name of the file to write the fault report to
+        rpd_query_used (bool): indicates whether rapidwright was used as a design query
+        elapsed_time (float): elapsed time that the tool has been running
+        pickle (bool, optional): indicates that a .pickle file with the raw fault report
+        structure should be exported. Defaults to False.
+    """
+    
+    dcp_path = get_checkpoint_path(design)
+    report_path = get_report_path(design, report_name)
+    
+    if not os.path.exists(report_path.parent):
+        pathlib.Path.mkdir(report_path.parent)
+    
+    statistics = bfat.print_fault_report(report_path, fault_report)
+    print_stat_footer(report_path, str(dcp_path), rpd_query_used, statistics, elapsed_time)
+    
+    if pickle:
+        bfat.pickle_fault_report(report_path, fault_report)
+    

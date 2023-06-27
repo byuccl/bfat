@@ -50,6 +50,7 @@ from lib.design_query import VivadoQuery
 from lib.fault_analysis import FaultBit, analyze_bit_group
 from lib.statistics import Statistics, print_stat_footer, get_bit_group_stats
 from bitread import get_frame_list, get_high_bits
+import lib.scaffold as scaffold
 
 ##################################################
 # Functions for Design Generation and Processing #
@@ -345,14 +346,56 @@ def pickle_fault_report(report_name:str, fault_report:dict):
     with open(outfile_name, 'wb') as o_f:
         pickle.dump(fault_report, o_f)
 
-##################################################
-#                 Main Function                  #
-##################################################
+###################################################
+#                 Main Functions                  #
+###################################################
 
-def main(args):
+def bfat_scaffold(args):
     '''
         Main function: Creates a report of the effects the passed in fault bits have
-        on the given design.
+        on the given design. Assumes arguments from "scaffold" subcommand.
+    '''
+    
+    t_start = time.perf_counter()
+    
+    # Parse in all high bits from the bitstream or from a .bits file [base_frame, word, bit]
+    print("Reading in Design Bits...")
+    design_bits = scaffold.get_design_bits(args.design)
+    
+    # Create a design query to get design info from the dcp file
+    print("Generating Design Query...")
+    design = scaffold.get_design_query(args.design, args.rapidwright)
+    
+    # Parse in the corresponding part's tilegrid.json file
+    print('Parsing in Input Files...')
+    tilegrid = parse_tilegrid(design.part)
+    # Parse in a frame list for the part
+    frame_list = [frame[0] for frame in get_frame_list(design.part)]
+    # Parse in the fault bit information
+    bit_groups = scaffold.get_fault_bits(args.design, args.fault_bits)
+    
+    # Generate images of tiles from the part's tilegrid
+    print('Generating Tile Images...')
+    tile_imgs = gen_tile_images(tilegrid, design.part)
+    
+    # Create dynamic progress bar for fault analysis of bit groups 
+    fa_pbar = tqdm(bit_groups.items())
+    fa_pbar.set_description('Analyzing Fault Bit Groups')
+    
+    # Define and evaluate each fault bit and generate data structure for a report
+    fault_report = {}
+    for bg, grp_bits in fa_pbar:
+        fault_report[bg] = analyze_bit_group(grp_bits, frame_list, tilegrid, tile_imgs, design_bits, design)
+        
+    # Create and output report based on analysis of fault bits
+    print('Printing Fault Report...')
+    outfile = get_outfile_name(args.out_file, args.fault_bits)
+    scaffold.write_fault_report(fault_report, args.design, outfile, args.rapidwright, round(time.perf_counter()-t_start, 2), args.pickle)
+
+def bfat_manual(args):
+    '''
+        Main function: Creates a report of the effects the passed in fault bits have
+        on the given design. Assumes arguments from "manual" subcommand.
     '''
 
     t_start = time.perf_counter()
@@ -400,7 +443,7 @@ def main(args):
 
     # Calculate and print fault bit statistics
     print('Printing Statistical Footer...')
-    print_stat_footer(outfile, args.dcp_file, args.rapidwright, statistics, round(time.perf_counter()-t_start, 2))
+    print_stat_footer(outfile, design.dcp, args.rapidwright, statistics, round(time.perf_counter()-t_start, 2))
 
     # Export fault report as .pickle if flag is set
     if args.pickle:
@@ -409,25 +452,37 @@ def main(args):
 
 if __name__ == '__main__':
     import argparse
-    # Create Argument Parser to take in commandline arguments
+    
+    # Create root Argument Parser to take in commandline arguments
     parser = argparse.ArgumentParser(description='Analyzes a design and evaluates provided fault '
                                                 + 'bits to report the identities and the effects '
                                                 + 'of the flipped values of each fault bit on '
                                                 + 'the design.')
-    # Input Files
-    parser.add_argument("bitstream", help='Bitstream file of the design to be analyzed')
-    parser.add_argument('dcp_file', help='Vivado checkpoint file of the implemented design')
-    parser.add_argument('fault_bits', help='Json file listing bits of interest')
-    # Feature Flags
-    parser.add_argument('-bf', '--bits_file', action='store_true', default='',
-                        help='Specify a .bits text file of all high bits instead of a bitstream')
-    parser.add_argument('-rpd', '--rapidwright', action='store_true',
+    subparsers = parser.add_subparsers()
+    
+    # Parent argument parser for arguments which are common between subparsers
+    parent_parser = argparse.ArgumentParser(add_help=False)
+    parent_parser.add_argument('-rpd', '--rapidwright', action='store_true',
                         help='Flag to use Rapidwright to read design data')
-    parser.add_argument('-p', '--pickle', action='store_true',
+    parent_parser.add_argument('-p', '--pickle', action='store_true',
                         help='Flag to write a .pickle file containing the raw fault report data')
-    # Optional Output File Path
-    parser.add_argument('-of', '--out_file', default='',
-                        help='File path where the output is to be written.')
+    
+    # Parser for inputs using new file system
+    scaffold_sp = subparsers.add_parser("scaffold", description="Read and write files using the existing directory scaffolding as a base.", parents = [parent_parser])
+    scaffold_sp.add_argument("design", help="Name of the design to analyze")
+    scaffold_sp.add_argument("fault_bits", help="Filename of the JSON file listing bits of interest")
+    scaffold_sp.add_argument("-of", "--out_file", help="Filename of the output report")
+    scaffold_sp.set_defaults(func=bfat_scaffold)
+    
+    # Parser for inputs using old file system
+    manual_sp = subparsers.add_parser("manual", description="Manually specify the locations of files to read from and write to", parents = [parent_parser])
+    manual_sp.add_argument("bitstream", help="Bitstream file of the design to be analyzed")
+    manual_sp.add_argument("dcp_file", help="Vivado checkpoint file of the implemented design")
+    manual_sp.add_argument("fault_bits", help="Json file listing bits of interest")
+    manual_sp.add_argument("-of", "--out_file", help="File path where the output is to be written")
+    manual_sp.add_argument('-bf', '--bits_file', action='store_true', default='',
+                        help='Specify a .bits text file of all high bits instead of a bitstream')
+    manual_sp.set_defaults(func=bfat_manual)
+    
     args = parser.parse_args()
-
-    main(args)
+    args.func(args)

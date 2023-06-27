@@ -234,7 +234,7 @@ def test_bfat(dcp):
         interface for design querying
     '''
 
-    from bfat import main as bfat_main
+    from bfat import bfat_manual as bfat_main
 
     # Load in the testing control fault report
     with open('test/ctrl_report.json') as cr:

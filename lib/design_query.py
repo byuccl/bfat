@@ -132,6 +132,7 @@ class DesignQuery(object):
     @abstractmethod
     def __init__(self, dcp:str):
         self.query = dcp
+        self.dcp = dcp
         self.part = ''
         self.nets = {}       # {tile : {pin : net}}
         self.pips = {}       # {net : [(source, sink)]}
