@@ -495,7 +495,7 @@ def find_fault_bits(bitstream:str, dcp:str, run_bfat:bool, rpd:bool):
                 bits_file.write(bit + "\n")
 
         # Bash command to run BFAT
-        run_cmd = ["python3", "bfat.py", bits_file_path, dcp, fault_bits_file_path, '-bf']
+        run_cmd = ["python3", "bfat.py", "manual", bits_file_path, dcp, fault_bits_file_path, '-bf']
 
         # Run BFAT as a subprocess
         cmd_run = subprocess.run(run_cmd, capture_output=True, text=True)

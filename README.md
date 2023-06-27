@@ -14,9 +14,11 @@ BFAT consists of the following scripts:
 Scripts included from the local library:
 
 - `define_bit.py`: Correlates fault bits to their physical functions in the FPGA fabric using the Project X-Ray database
+- `design_query`: Deals with querying the design information from its .dcp checkpoint file by issuing TCL commands to Vivado.
 - `fault_analysis.py` Uses the physical functions found for each fault bit to analyze the effect on the design from an upset.
-- `file_processing.py`: Deals with all external file reading and parsing.
+- `file_processing.py`: Deals with external file reading and parsing.
 - `rpd_query.py`: Deals with querying the design information from its .dcp checkpoint file using the Rapidwright tool.
+- `scaffold.py`: Deals with locating files within the existing directory scaffold.
 - `statistics.py`: Reads the report data for the design and adds a footer at the end of the report file to report some statistics of the design and faults found.
 - `tile.py`: Creates the classes to store the information on the tiles and routing muxes for the given FPGA design.
 
@@ -43,7 +45,7 @@ BFAT utilizes the ProjectXray database in its design analysis and clones the dat
 
 ## Quickstart Guide
 
-1. Clone the BFAT repo from Github along with its submodule
+1. Clone the BFAT repo from Github along with its submodules
     ```
     git clone --recurse-submodules https://github.com/byuccl/bfat.git
     cd bfat
@@ -52,7 +54,7 @@ BFAT utilizes the ProjectXray database in its design analysis and clones the dat
 2. Install Vivado HDL Tools
     > **Note:** We recommend Vivado version 2021.2 or later, as earlier versions are untested and we cannot guarantee that they will work
 
-3. Install Python 3.8+, its corresponding Virtual Environement (venv) module, and a valid Java JDK
+3. Install Python 3.8+, its corresponding Virtual Environment (venv) module, and a valid Java JDK
     ```
     sudo apt install python<dist> python<dist>-venv default-jdk
     ```
@@ -96,10 +98,10 @@ BFAT utilizes the ProjectXray database in its design analysis and clones the dat
 
 **Template command to run BFAT:**
     ```
-    python3 bfat.py <bitstream> <dcp> <fault_bits>
+    python3 bfat.py manual <bitstream> <dcp> <fault_bits>
     ```
 
-* To see more specifics on running BFAT, look at the help information provided by running `python3 bfat.py -h`
+* To see more specifics on running BFAT, look at the help information provided by running `python3 bfat.py manual -h`
 * First time users may want to use the demo designs provided in the Releases tab. Information on how to use those designs is provided [here](docs/demo_designs.md).
 
 ---

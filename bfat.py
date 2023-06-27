@@ -453,11 +453,11 @@ def bfat_manual(args):
 if __name__ == '__main__':
     import argparse
     
+    bfat_desc = 'Analyzes a design and evaluates provided fault bits to report the identities and ' \
+                'the effects of the flipped values of each fault bit on the design.'
+    
     # Create root Argument Parser to take in commandline arguments
-    parser = argparse.ArgumentParser(description='Analyzes a design and evaluates provided fault '
-                                                + 'bits to report the identities and the effects '
-                                                + 'of the flipped values of each fault bit on '
-                                                + 'the design.')
+    parser = argparse.ArgumentParser(description=bfat_desc)
     subparsers = parser.add_subparsers()
     
     # Parent argument parser for arguments which are common between subparsers
@@ -468,14 +468,14 @@ if __name__ == '__main__':
                         help='Flag to write a .pickle file containing the raw fault report data')
     
     # Parser for inputs using new file system
-    scaffold_sp = subparsers.add_parser("scaffold", description="Read and write files using the existing directory scaffolding as a base.", parents = [parent_parser])
+    scaffold_sp = subparsers.add_parser("scaffold", description=bfat_desc+" Read and write files using the existing directory scaffolding as a base.", parents = [parent_parser])
     scaffold_sp.add_argument("design", help="Name of the design to analyze")
     scaffold_sp.add_argument("fault_bits", help="Filename of the JSON file listing bits of interest")
     scaffold_sp.add_argument("-of", "--out_file", help="Filename of the output report")
     scaffold_sp.set_defaults(func=bfat_scaffold)
     
     # Parser for inputs using old file system
-    manual_sp = subparsers.add_parser("manual", description="Manually specify the locations of files to read from and write to", parents = [parent_parser])
+    manual_sp = subparsers.add_parser("manual", description=bfat_desc+" Manually specify the locations of files to read from and write to", parents = [parent_parser])
     manual_sp.add_argument("bitstream", help="Bitstream file of the design to be analyzed")
     manual_sp.add_argument("dcp_file", help="Vivado checkpoint file of the implemented design")
     manual_sp.add_argument("fault_bits", help="Json file listing bits of interest")

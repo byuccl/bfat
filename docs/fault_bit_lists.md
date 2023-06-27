@@ -12,7 +12,7 @@ The standard file format that BFAT accepts is `.json`. Here is what a sample fau
             "007",                                    |
             "15"                                      |
         ]                                             |
-],                                                    |
+    ],                                                |
     [                                <<- Bit Group    |
         [              <<- Single Bit Address    |    |
             "00002486",                     |    |    |
@@ -25,6 +25,7 @@ The standard file format that BFAT accepts is `.json`. Here is what a sample fau
             "14"                                 |    |
         ]                                        |    |
     ],                               <<- Bit Group    |
+    [                                                 |
         [                                             |
             "00002482",                               |
             "077",                                    |
