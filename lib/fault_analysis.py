@@ -1018,7 +1018,7 @@ def trace_node_connections(tile_name:str, node:str, fault_bits:dict, design_bits
             non_int_cnxs = set()
 
             # Save non-INT connections in a separate set and remove each from the original list
-            [non_int_cnxs.add(cnx) for cnx in wire_cnxs if 'INT' not in cnx]
+            [non_int_cnxs.add(cnx) for cnx in wire_cnxs if 'INT_L' not in cnx and "INT_R" not in cnx]
             [wire_cnxs.remove(nic) for nic in non_int_cnxs]
 
             # Trace the node at the end of each wire connection

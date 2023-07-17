@@ -26,7 +26,6 @@
 
 import rapidwright
 from com.xilinx.rapidwright.design import Design
-from com.xilinx.rapidwright.device import Wire
 from lib.design_query import DesignQuery
 
 class RpdQuery(DesignQuery):
@@ -187,12 +186,18 @@ class RpdQuery(DesignQuery):
 
             # Iterate through the wires in the given tile
             for wire in tile_wires:
-                connections = [Wire(tile_obj, wire)]
-                connections += list(tile_obj.getWireConnections(wire))
+                cnxs = [f"{tile}/{wire}"]
+                
+                # Add all forward wire connections of the tile wire
+                cnx_objs = tile_obj.getWireConnections(wire)
+                for cnx_obj in cnx_objs:
+                    cnx_wire = cnx_obj.getWireName()
+                    cnx_tile = cnx_obj.getTile().getName()
+                    cnxs.append(f"{cnx_tile}/{cnx_wire}")
 
                 # Add the connections found to the wire structure if any are found
-                if connections:
-                    self.wires[tile][wire] = connections
+                if cnxs:
+                    self.wires[tile][wire] = cnxs
 
     #################################
     #   Affected Resource Tracing   #
@@ -213,15 +218,13 @@ class RpdQuery(DesignQuery):
 
         # Iterate through each connection to the wire at the given node
         for cnx in wire_cnxs:
-            cnx_name = f'{cnx.getTile().getName()}/{cnx.getWireName()}'
-
             net_obj = self.query.getNet(net)
             net_sink_pins = net_obj.getSinkPins()
             # Iterate through the Sink pins of the current net to check if we arrived at a site
             for pin in net_sink_pins:
                 # Check if the current sink pin matches the current PIP sink
                 pin_node_name = pin.getNodeFromPin().getName()
-                if pin_node_name == cnx_name:
+                if pin_node_name == cnx:
                     # This pin is a sink pin into a site
                     site_inst = pin.getSiteInst()
 
@@ -234,7 +237,7 @@ class RpdQuery(DesignQuery):
             # Iterate through each PIP for the given net
             for pip in self.get_pips(net):
                 # Call trace again on any connected sink pins
-                if cnx_name == pip[0]:
+                if cnx == pip[0]:
                     new_tile, new_node = pip[1].split('/')
 
                     # Do not trace nodes that have already been traced

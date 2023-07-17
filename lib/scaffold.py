@@ -279,5 +279,5 @@ def write_fault_report(fault_report:dict, design:str, report_name:str, rpd_query
     print_stat_footer(report_path, str(dcp_path), rpd_query_used, statistics, elapsed_time)
     
     if pickle:
-        bfat.pickle_fault_report(report_path, fault_report)
+        bfat.pickle_fault_report(str(report_path), fault_report)
     
